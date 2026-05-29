@@ -1,0 +1,181 @@
+// Paggo collections tool - schema
+// See CLAUDE.md for architecture overview.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Segment {
+  SMB
+  MID
+  ENT
+}
+
+enum PaymentMethod {
+  BOLETO
+  PIX
+  CREDIT_CARD
+  BANK_TRANSFER
+}
+
+enum InvoiceStatus {
+  open
+  in_negotiation
+  agreement_signed
+  paid
+  written_off
+  disputed
+}
+
+enum PaymentStatus {
+  unpaid
+  partial
+  paid
+}
+
+enum FollowUpStatus {
+  pending
+  done
+  missed
+}
+
+enum AgentPlanStatus {
+  pending
+  confirmed
+  executed
+  failed
+  rejected
+}
+
+model Customer {
+  id          String   @id
+  name        String
+  segment     Segment
+  creditLimit Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+
+  invoices Invoice[]
+}
+
+model Invoice {
+  id                           String        @id
+  customerId                   String
+  issueDate                    DateTime      @db.Date
+  dueDate                      DateTime      @db.Date
+  paidDate                     DateTime?     @db.Date
+  amount                       Decimal       @db.Decimal(14, 2)
+  amountPaid                   Decimal       @db.Decimal(14, 2)
+  paymentMethod                PaymentMethod
+  attempts                     Int
+  previousLateInvoicesSnapshot Int
+  openBalanceSnapshot          Decimal       @db.Decimal(14, 2)
+
+  status        InvoiceStatus @default(open)
+  paymentStatus PaymentStatus @default(unpaid)
+
+  riskScore   Int  @default(0)
+  riskFactors Json @default("[]")
+
+  updatedAt DateTime @updatedAt
+
+  customer   Customer           @relation(fields: [customerId], references: [id])
+  agreements PaymentAgreement[]
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([riskScore])
+  @@index([dueDate])
+  @@index([customerId])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  author     String
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+model PaymentAgreement {
+  id                String   @id @default(cuid())
+  originalInvoiceId String
+  installments      Int
+  discountPct       Decimal? @db.Decimal(5, 2)
+  feePct            Decimal? @db.Decimal(5, 2)
+  createdBy         String
+  createdAt         DateTime @default(now())
+
+  originalInvoice Invoice                @relation(fields: [originalInvoiceId], references: [id])
+  installmentRows AgreementInstallment[]
+
+  @@index([originalInvoiceId])
+}
+
+model AgreementInstallment {
+  id                String    @id @default(cuid())
+  agreementId       String
+  installmentNumber Int
+  dueDate           DateTime  @db.Date
+  amount            Decimal   @db.Decimal(14, 2)
+  status            String    @default("open")
+  paidDate          DateTime? @db.Date
+  paidAmount        Decimal?  @db.Decimal(14, 2)
+
+  agreement PaymentAgreement @relation(fields: [agreementId], references: [id])
+
+  @@index([agreementId])
+}
+
+model FollowUp {
+  id         String         @id @default(cuid())
+  entityType String
+  entityId   String
+  dueAt      DateTime
+  channel    String
+  status     FollowUpStatus @default(pending)
+  body       String
+  assignee   String?
+  createdBy  String
+  createdAt  DateTime       @default(now())
+
+  @@index([entityType, entityId])
+  @@index([dueAt])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  origin     String
+  actor      String
+  payload    Json
+  timestamp  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+}
+
+model AgentPlan {
+  id         String          @id @default(cuid())
+  sessionId  String
+  summary    String
+  steps      Json
+  status     AgentPlanStatus @default(pending)
+  result     Json?
+  createdAt  DateTime        @default(now())
+  executedAt DateTime?
+
+  @@index([sessionId])
+  @@index([status])
+}
