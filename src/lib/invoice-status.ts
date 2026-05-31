@@ -13,7 +13,9 @@ export const STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
 };
 
 export function canTransition(from: InvoiceStatus, to: InvoiceStatus): boolean {
-  return STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+  // No workflow restriction: any real status change is allowed so the analyst can
+  // always correct a mis-click (including re-opening terminal states).
+  return from !== to;
 }
 
 export const STATUS_LABELS: Record<InvoiceStatus, string> = {

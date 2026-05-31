@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ReceiptText, Sparkles } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Sparkles, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -11,7 +11,7 @@ const NAV = [
   { href: "/agent", label: "Agente", icon: Sparkles },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
 
   return (
@@ -48,12 +48,26 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="space-y-2 border-t border-sidebar-border p-3">
         <div className="rounded-md bg-sidebar-accent/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <span className="font-medium text-sidebar-foreground">Data de referência</span>
           <br />
           01/04/2026 · carteira de 90 dias
         </div>
+        {userEmail && (
+          <form action="/auth/signout" method="post" className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={userEmail}>
+              {userEmail}
+            </span>
+            <button
+              type="submit"
+              className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+              aria-label="Sair"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sair
+            </button>
+          </form>
+        )}
       </div>
     </aside>
   );

@@ -107,16 +107,6 @@ export function computeRisk(input: RiskInput, today: Date): RiskResult {
     });
   }
 
-  // Rule 6 — Silent high value (binary 5). A large invoice overdue 30+ days with
-  // zero payment signals a silent dispute or a vanished customer: investigate.
-  if (input.amount > 10000 && daysOverdue > 30 && input.amountPaid === 0) {
-    factors.push({
-      rule: "silent_high_value",
-      points: 5,
-      description: `R$ ${input.amount.toFixed(0)} sem nenhum pagamento ha ${daysOverdue} dias`,
-    });
-  }
-
   const score = Math.min(
     factors.reduce((sum, f) => sum + f.points, 0),
     100,

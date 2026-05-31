@@ -1,6 +1,6 @@
 import { subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { appToday } from "@/lib/risk";
+import { appToday, type RiskFactor } from "@/lib/risk";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AgingBucket } from "@/lib/aging";
 import {
@@ -40,12 +40,15 @@ export async function fetchInvoiceDataset(
         customerId: true,
         amount: true,
         amountPaid: true,
+        issueDate: true,
         dueDate: true,
+        paidDate: true,
         status: true,
         paymentStatus: true,
         paymentMethod: true,
         attempts: true,
         riskScore: true,
+        riskFactors: true,
         customer: { select: { name: true, segment: true } },
       },
     }),
@@ -64,11 +67,14 @@ export async function fetchInvoiceDataset(
       amount,
       amountPaid,
       open: amount - amountPaid,
+      issueDate: r.issueDate.toISOString(),
       dueDate: r.dueDate.toISOString(),
+      paidDate: r.paidDate ? r.paidDate.toISOString() : null,
       status: r.status,
       paymentStatus: r.paymentStatus,
       attempts: r.attempts,
       riskScore: r.riskScore,
+      riskFactors: (r.riskFactors as unknown as RiskFactor[]) ?? [],
     };
   });
 

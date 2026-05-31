@@ -2,6 +2,105 @@
 
 Decisions, tradeoffs, and learnings during development. Most-recent-first within sections.
 
+## Scoring simplified to 5 rules (dropped silent_high_value)
+
+Removed the `silent_high_value` rule (binary +5: amount>10k, overdue>30d, amountPaid=0) to simplify
+the model. Now 5 additive rules (max 95): balance_at_risk(30), aging(20), chronicity(20),
+ent_first_late(15), boleto_stuck(10). Removing it changes persisted scores, so re-ran `npm run db:seed`
+(child tables were empty — safe) to recompute all 8000. New distribution: 23 critical / 89 high /
+640 medium, max 75 (was 24/94/634, max 79). Rule metadata centralized in `src/lib/risk-rules.ts`
+(drives the read-only "Regras" popover top-right of `/invoices` and the detail labels — replaced the
+duplicated `RULE_LABELS` in `invoice-sheet.tsx` and `invoices/[id]/page.tsx`). Tier thresholds left
+as-is (not recalibrated). `prisma/recompute-risk.ts` is the recompute path if child tables ever hold
+data and a re-seed would be destructive.
+
+## Day 5 — AI agent decisions
+
+### Manual tool-use loop, non-streaming JSON response (not SSE)
+
+Agent = Claude API + tool use with a **manual agentic loop** (`src/lib/agent/loop.ts`, `runAgent`) — not Managed Agents — because we host compute and need human approval gates. Model `claude-opus-4-8` in a constant (`AGENT_MODEL` in `agent/config.ts`); 1-line swap to `claude-sonnet-4-6`. Request shape kept minimal (model, max_tokens, system+`cache_control`, tools, messages) — no `thinking`/`output_config`/`effort`, to avoid SDK-0.100/model mismatch. The route `/api/agent/chat` returns **plain JSON `{text, plans[]}`**, not an SSE stream — simpler and robust; the chat shows a "pensando…" state then the answer. Token-streaming can be added later. Verified the live call shape + the full tool_result→end_turn threading against opus-4-8 with two throwaway SDK smokes (both green) before trusting the loop.
+
+### Tools in one module + runTool dispatch (not a separate registry.ts)
+
+`src/lib/agent/tools.ts` holds `TOOL_DEFS` (hand-written JSON schemas) + `runTool(name, input, sessionId)` dispatcher. Read tools (`searchInvoices`, `getInvoice`, `getPortfolioStats`, `getTopRisk`) reuse Day-4 queries. Direct low-risk writes (`addNote`, `scheduleFollowUp`) reuse the Day-4 actions passing `ctx={origin:"agent",actor:"agent"}` (the actions were refactored to take an optional `WriteCtx`, default analyst). One gated tool `proposeActions(summary, steps)` covers all batch/financial/destructive work — it only writes an `AgentPlan(pending)` and returns the plan id; it never mutates domain data.
+
+### Human-in-the-loop: agent proposes, analyst confirms
+
+`proposeActions` → `AgentPlan` row (typed `steps` validated by `planStepsSchema` in `agent/plan-steps.ts`, a prisma-free discriminated union: status | note | followup | writeoff | agreement). The chat UI renders a `PlanCard` with Confirmar/Rejeitar. `confirmPlan(planId)` (`actions/agent-plan.ts`) executes **every step in one `prisma.$transaction`** — any invalid step rolls back the whole plan (proven by test) — emitting one agent-attributed `AuditEvent` per step (payload references `planId`), then sets the plan `executed`. `rejectPlan` just marks `rejected`. The model is structurally unable to execute batch/destructive actions directly; only the human's confirm click runs `confirmPlan`. write_off and payment agreements always go through this gate.
+
+## Agente v2 — auth, chats por usuário, mutações 100% gated, gráficos, streaming
+
+### Auth via Supabase Auth (@supabase/ssr) — antes era pulado, agora é requisito
+Email/senha. `lib/supabase/server.ts` (createServerClient + `cookies()` async) e `client.ts` (browser). `src/proxy.ts` (Next 16 renomeou middleware→proxy, runtime nodejs) refaz a sessão por request e protege rotas: deslogado → `/login`; em `/api/*` retorna 401 JSON (não redirect, pra fetch não pegar HTML). `/login` + `login-form.tsx` (signIn/signUp), `/auth/signout` (route POST). `layout.tsx` virou async: só renderiza sidebar+main se houver `getUser()`; senão só children (tela de login). Sidebar mostra email + Sair.
+**PASSO MANUAL (Supabase dashboard):** habilitar provider Email/Password e, pra dev, desligar "Confirm email" — senão signup não cria sessão na hora.
+Carteira (invoices/customers) é **compartilhada** entre usuários; só os chats são privados.
+
+### Chats persistidos por usuário, cap 5
+Modelos `Chat` + `ChatMessage` (aplicados via MCP `apply_migration`, RLS on). `lib/queries/chats.ts` deriva `userId` da sessão (`getUser()`, nunca de param) e escopa tudo; `createChat` recusa o 6º (`MAX_CHATS=5`). `AgentPlan.sessionId` = chatId. `ChatMessage.data` (jsonb) guarda plans/charts/trace pra re-render no reload; `getPlanStatuses` reconcilia status dos planos ao carregar.
+
+### Toda mutação é gated por modal (sem escrita direta)
+Removidas as write-tools diretas do agente. Tools agora: 4 de leitura + `showChart` + `proposeActions`. QUALQUER mudança (até 1 nota) → `proposeActions` → `AgentPlan(pending)` → UI mostra `PlanModal` (card "Revisar" → Dialog lista os passos com **X por linha** pra remover) → `confirmPlan(planId, keptIndexes)` executa **só os mantidos** numa transação e audita só eles. Segurança: o modelo é estruturalmente incapaz de executar; só o clique do humano roda `confirmPlan`.
+
+### Gráficos + trace + streaming
+`showChart({type})` sinaliza um gráfico; o `loop` coleta `{type,data}` (fora do que o modelo vê) e a UI renderiza `aging`/`ar_trend` (reusa dashboard), `risk_tiers` (`TierChart`), `top_risk` (`TopRiskChart`). `ToolTrace` = expandível com as ferramentas usadas. **Streaming SSE:** `loop.ts` virou `streamAgent` (async generator, usa `client.messages.stream`); a rota `/api/agent/chat` emite `data:` events de texto e um `done` final com `{plans,charts,trace}`, persistindo as mensagens. `runAgent` (wrapper não-stream) mantido p/ testes/fallback. Respostas do chat renderizam markdown (`react-markdown`+`remark-gfm`); IDs `INV-xxx` viram links.
+
+## Testing decisions
+
+### Vitest, unit + DB-integration with TEST-* fixtures (no E2E yet)
+
+Backfilled a regression suite over existing code (not strict red-green — code predates tests; true
+TDD applies from the agent/Day 5 onward). Stack: Vitest + `vite-tsconfig-paths`. **Unit** tests
+(`*.test.ts`) cover all pure logic (risk scoring rules + tiers, aging buckets, agreement schedule
+cents math, text normalization, status state machine) — 49 tests, ~7s, no DB. **Integration**
+(`*.integration.test.ts`) exercises the Server Actions against the real Supabase DB using dedicated
+`TEST-*` rows created/cleaned per test, so the 8000 seeds stay intact (verified 0 residue). `next/cache`
+is mocked. Integration is slow (~13s/test, ~2min total) because each query is a remote pooler
+round-trip — hence the `test:unit` fast lane for the daily loop. **E2E (Playwright) deliberately
+skipped for now** — it's what would catch client-side bugs like the `appToday`-in-client crash, but
+it competes with finishing the agent; revisit on Day 6 if time allows.
+
+### Bug class the tests don't cover: server-only code in client components
+
+The `appToday()`-in-a-client-component crash (reads `process.env.APP_TODAY`, undefined in the browser)
+slipped past typecheck, lint, unit tests, AND server-route smoke curls — it only fires when a client
+component mounts in a real browser. Mitigation applied: pass server-derived values (like `today`) as
+props into client components instead of reading env there. Until E2E exists, the manual browser click
+is the only thing that catches this class.
+
+## Day 4 — CRUD + audit + drawer decisions
+
+### Detail = lateral Sheet, not a modal or page nav
+
+Clicar numa linha abre um `Sheet` lateral (`src/components/ui/sheet.tsx`, hand-rolled — base-nova
+não tem sheet) sobre a lista; a fila de triagem continua scrollável atrás. A página
+`/invoices/[id]` permanece como fallback de deep-link/F5. O Sheet (`invoice-sheet.tsx`) busca o
+detalhe via `fetchInvoiceDetail` (server action em `lib/actions/invoice-detail.ts` — precisa ser
+`"use server"` pra ser chamável do client) ao abrir e re-busca após cada mutação. A lista atrás
+atualiza sozinha porque as actions chamam `revalidatePath("/invoices")` e o estado de filtro do
+`InvoiceTable` client sobrevive (mesma posição na árvore).
+
+### Escrita = Server Actions com audit na mesma transação
+
+`lib/actions/invoices.ts` (`"use server"`): `updateInvoiceStatus`, `addNote`, `scheduleFollowUp`,
+`createPaymentAgreement`. Cada uma valida com zod v4, roda em `prisma.$transaction`, e emite
+`AuditEvent` via `recordAudit(tx, …)` (`lib/audit.ts`) dentro da mesma tx — evento nunca existe sem
+a mutação. Actor fixo `"analyst"`, origin `"analyst"` (agente usará `"agent"` no Day 5). Retorno
+`{ok:true}|{ok:false,error}`.
+
+### status→paid também quita o financeiro
+
+`updateInvoiceStatus(to:"paid")` seta `paymentStatus=paid, amountPaid=amount, paidDate=appToday()`
+e recomputa o risco (`recomputeInvoiceRisk` em `lib/risk-recompute.ts`) → recoverable 0 → score 0.
+Transições validadas por `canTransition` (state machine de `invoice-status.ts`); inválida retorna
+erro sem gravar nada.
+
+### Acordo: cents inteiros num módulo prisma-free
+
+`lib/agreement.ts` `buildSchedule()` calcula o cronograma em **cents inteiros** (sem float drift),
+última parcela absorve o arredondamento. É prisma-free de propósito: o preview do modal roda no
+client (importar Prisma no bundle do browser quebra o Turbopack — ver gotcha). O server converte
+`amountCents` → `Prisma.Decimal(cents)/100` ao gravar as `AgreementInstallment`.
+
 ## UX / performance decisions
 
 ### Invoice list filters client-side in memory (instant), scope is the only server round-trip

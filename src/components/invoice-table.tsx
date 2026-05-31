@@ -1,19 +1,30 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
   ArrowDown,
   ArrowUp,
+  Banknote,
+  Barcode,
+  Building2,
   ChevronsUpDown,
+  Clock,
+  CreditCard,
+  Hourglass,
   Loader2,
+  Repeat,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { InvoiceSheet } from "@/components/invoice-sheet";
+import { RISK_RULES } from "@/lib/risk-rules";
 import { PAGE_SIZE, type InvoiceRow, type ScopePreset } from "@/lib/queries/invoice-types";
 import { agingBucket, AGING_BUCKETS, AGING_LABELS, daysOverdue } from "@/lib/aging";
 import {
@@ -40,6 +51,50 @@ const AGING_OPTS = AGING_BUCKETS.map((v) => ({ value: v, label: AGING_LABELS[v] 
 const STATUS_OPTS = (
   ["open", "in_negotiation", "agreement_signed", "paid", "written_off", "disputed"] as const
 ).map((v) => ({ value: v, label: STATUS_LABELS[v] }));
+
+// Live risk re-weighting: the analyst tunes how many points each rule is worth
+// (0-30, sticky to 5s). Defaults mirror the persisted weights, so the table is
+// identical to the server score until a slider moves. Nothing is saved — scores,
+// ordering, badges and the "Risco ≥" filter are recomputed in memory only.
+const RULE_MAX: Record<string, number> = Object.fromEntries(
+  RISK_RULES.map((r) => [r.key, r.max]),
+);
+const DEFAULT_WEIGHTS: Record<string, number> = { ...RULE_MAX };
+
+const RULE_ICON: Record<string, LucideIcon> = {
+  balance_at_risk: Banknote,
+  aging: Hourglass,
+  chronicity: Repeat,
+  ent_first_late: Building2,
+  boleto_stuck: Barcode,
+};
+
+// What each rule measures + how its points scale. Clearer than the one-line
+// rationale; the last two are all-or-nothing (binary).
+const RULE_DESC: Record<string, string> = {
+  balance_at_risk:
+    "Saldo em aberto da fatura. Pontua proporcional ao valor, atingindo o máximo em R$ 25 mil.",
+  aging: "Dias desde o vencimento. Cresce com o atraso e satura aos 60 dias.",
+  chronicity:
+    "Atrasos do cliente nos últimos 12 meses. Proporcional até 5 atrasos, quando bate o teto.",
+  ent_first_late:
+    "Cliente Enterprise atrasando pela primeira vez. Tudo ou nada: pontua cheio quando ocorre.",
+  boleto_stuck:
+    "Boleto com mais de 2 tentativas (falha técnica). Tudo ou nada: pontua cheio quando dispara.",
+};
+
+function liveScore(
+  factors: { rule: string; points: number }[],
+  weights: Record<string, number>,
+): number {
+  let score = 0;
+  for (const f of factors) {
+    const max = RULE_MAX[f.rule] ?? 0;
+    // points/max is the realized intensity (binary rules fire at full → 1).
+    if (max > 0) score += (f.points / max) * (weights[f.rule] ?? 0);
+  }
+  return Math.round(score);
+}
 
 type SortField = "riskScore" | "open" | "dueDate" | "customer";
 type SortDir = "asc" | "desc";
@@ -72,12 +127,40 @@ export function InvoiceTable({
   const [sort, setSort] = useState<SortField>("riskScore");
   const [dir, setDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [openRow, setOpenRow] = useState<InvoiceRow | null>(null);
+  const [weights, setWeights] = useState<Record<string, number>>(() => ({
+    ...DEFAULT_WEIGHTS,
+  }));
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const nq = normalizeText(q);
 
+  const weightsDirty = useMemo(
+    () => RISK_RULES.some((r) => weights[r.key] !== DEFAULT_WEIGHTS[r.key]),
+    [weights],
+  );
+  const maxScore = useMemo(
+    () => Object.values(weights).reduce((a, b) => a + b, 0),
+    [weights],
+  );
+
+  // Re-score every row from its factors. Identical to the persisted score while
+  // weights are untouched, so the default view is unchanged.
+  const scored = useMemo(
+    () =>
+      weightsDirty
+        ? rows.map((r) => ({ ...r, riskScore: liveScore(r.riskFactors, weights) }))
+        : rows,
+    [rows, weights, weightsDirty],
+  );
+
+  // Lowering weights can drop the ceiling below a previously-set threshold; clamp
+  // at apply-time so the filter never hides everything (state itself is preserved).
+  const effMinRisk = Math.min(minRisk, maxScore);
+
   const filtered = useMemo(() => {
-    const out = rows.filter((r) => {
-      if (minRisk > 0 && r.riskScore < minRisk) return false;
+    const out = scored.filter((r) => {
+      if (effMinRisk > 0 && r.riskScore < effMinRisk) return false;
       if (segments.length && !segments.includes(r.segment)) return false;
       if (methods.length && !methods.includes(r.paymentMethod)) return false;
       if (statuses.length && !statuses.includes(r.status)) return false;
@@ -103,7 +186,7 @@ export function InvoiceTable({
       return cmp * factor;
     });
     return out;
-  }, [rows, minRisk, segments, methods, statuses, aging, nq, sort, dir, todayDate]);
+  }, [scored, effMinRisk, segments, methods, statuses, aging, nq, sort, dir, todayDate]);
 
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -127,7 +210,8 @@ export function InvoiceTable({
     methods.length > 0 ||
     statuses.length > 0 ||
     aging.length > 0 ||
-    minRisk > 0;
+    minRisk > 0 ||
+    weightsDirty;
 
   function clearAll() {
     setQ("");
@@ -137,6 +221,7 @@ export function InvoiceTable({
     setAging([]);
     setRiskDraft(0);
     setMinRisk(0);
+    setWeights({ ...DEFAULT_WEIGHTS });
     setPage(1);
   }
 
@@ -160,7 +245,7 @@ export function InvoiceTable({
           <h1 className="text-base font-semibold">Faturas</h1>
           <p className="text-xs text-muted-foreground">Triagem por risco · carteira B2B</p>
         </div>
-        <div className="flex items-center gap-2 text-right text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-right text-xs text-muted-foreground">
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           <span>
             <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -173,7 +258,8 @@ export function InvoiceTable({
 
       {/* Filter bar */}
       <div className="flex flex-col gap-3 border-b border-border bg-card px-5 py-3">
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Line 1: search + scope (left), risk controls (right) */}
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -205,8 +291,67 @@ export function InvoiceTable({
             ))}
           </div>
 
+          <div className="ml-auto flex items-center gap-3">
+            {hasFilters && (
+              <button
+                onClick={clearAll}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" /> Limpar filtros
+              </button>
+            )}
+
+            {/* Risk slider — thumb follows the cursor live, filter applies on release */}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              Risco ≥
+              <input
+                type="range"
+                min={0}
+                max={maxScore}
+                step={5}
+                value={Math.min(riskDraft, maxScore)}
+                onChange={(e) => setRiskDraft(Number(e.target.value))}
+                onMouseUp={() => {
+                  setMinRisk(riskDraft);
+                  setPage(1);
+                }}
+                onTouchEnd={() => {
+                  setMinRisk(riskDraft);
+                  setPage(1);
+                }}
+                onKeyUp={() => {
+                  setMinRisk(riskDraft);
+                  setPage(1);
+                }}
+                className="accent-primary"
+              />
+              <span className="w-14 font-mono font-semibold tabular-nums text-foreground">
+                {Math.min(riskDraft, maxScore)}
+                <span className="text-muted-foreground">/{maxScore}</span>
+              </span>
+            </label>
+
+            <button
+              onClick={() => setRulesOpen(true)}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-sm",
+                weightsDirty
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Regras de risco
+            </button>
+          </div>
+        </div>
+
+        {/* Line 2: 2x2 grid of filters with icons + inline selected chips. Auto
+            columns mean selected chips on the left column push Aging/Status right. */}
+        <div className="grid w-fit grid-cols-[auto_auto] gap-x-8 gap-y-2">
           <FilterDropdown
             label="Segmento"
+            icon={Building2}
             options={SEGMENT_OPTS}
             selected={segments}
             onToggle={toggle(setSegments)}
@@ -216,17 +361,8 @@ export function InvoiceTable({
             }}
           />
           <FilterDropdown
-            label="Método"
-            options={METHOD_OPTS}
-            selected={methods}
-            onToggle={toggle(setMethods)}
-            onClear={() => {
-              setMethods([]);
-              setPage(1);
-            }}
-          />
-          <FilterDropdown
             label="Aging"
+            icon={Clock}
             options={AGING_OPTS}
             selected={aging}
             onToggle={toggle(setAging)}
@@ -236,7 +372,19 @@ export function InvoiceTable({
             }}
           />
           <FilterDropdown
+            label="Método"
+            icon={CreditCard}
+            options={METHOD_OPTS}
+            selected={methods}
+            onToggle={toggle(setMethods)}
+            onClear={() => {
+              setMethods([]);
+              setPage(1);
+            }}
+          />
+          <FilterDropdown
             label="Status"
+            icon={Activity}
             options={STATUS_OPTS}
             selected={statuses}
             onToggle={toggle(setStatuses)}
@@ -245,44 +393,6 @@ export function InvoiceTable({
               setPage(1);
             }}
           />
-
-          {/* Risk slider — thumb follows the cursor live, filter applies on release */}
-          <label className="ml-1 flex items-center gap-2 text-xs text-muted-foreground">
-            Risco ≥
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={riskDraft}
-              onChange={(e) => setRiskDraft(Number(e.target.value))}
-              onMouseUp={() => {
-                setMinRisk(riskDraft);
-                setPage(1);
-              }}
-              onTouchEnd={() => {
-                setMinRisk(riskDraft);
-                setPage(1);
-              }}
-              onKeyUp={() => {
-                setMinRisk(riskDraft);
-                setPage(1);
-              }}
-              className="accent-primary"
-            />
-            <span className="w-6 font-mono font-semibold tabular-nums text-foreground">
-              {riskDraft}
-            </span>
-          </label>
-
-          {hasFilters && (
-            <button
-              onClick={clearAll}
-              className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3" /> Limpar filtros
-            </button>
-          )}
         </div>
 
         {capped && (
@@ -323,16 +433,16 @@ export function InvoiceTable({
               return (
                 <tr
                   key={inv.id}
-                  className="border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5"
+                  onClick={() => setOpenRow(inv)}
+                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5"
                 >
                   <td className="max-w-[220px]">
-                    <Link
-                      href={`/invoices/${inv.id}`}
-                      className="block truncate font-medium hover:text-primary hover:underline"
+                    <span
+                      className="block truncate font-medium"
                       title={inv.customerName}
                     >
                       {inv.customerName}
-                    </Link>
+                    </span>
                     <span className="font-mono text-[11px] text-muted-foreground">
                       {inv.customerId}
                     </span>
@@ -390,6 +500,132 @@ export function InvoiceTable({
           />
         </div>
       </footer>
+
+      <InvoiceSheet row={openRow} today={today} onClose={() => setOpenRow(null)} />
+
+      {rulesOpen && (
+        <RiskRulesModal
+          weights={weights}
+          onChange={(key, val) => {
+            setWeights((w) => ({ ...w, [key]: val }));
+            setPage(1);
+          }}
+          onReset={() => {
+            setWeights({ ...DEFAULT_WEIGHTS });
+            setPage(1);
+          }}
+          maxScore={maxScore}
+          onClose={() => setRulesOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function RiskRulesModal({
+  weights,
+  onChange,
+  onReset,
+  maxScore,
+  onClose,
+}: {
+  weights: Record<string, number>;
+  onChange: (key: string, val: number) => void;
+  onReset: () => void;
+  maxScore: number;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+        <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold">Regras de risco</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              O risco de cada fatura é a soma dos pontos das regras que ela aciona.
+              Ajuste o peso de cada regra (0–30).
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="flex items-center justify-between border-b border-border px-5 py-2.5 text-xs">
+          <span className="text-muted-foreground">Pontuação máxima (somatória)</span>
+          <span className="font-mono text-sm font-semibold tabular-nums">{maxScore}</span>
+        </div>
+
+        <div className="space-y-4 overflow-auto px-5 py-4">
+          {RISK_RULES.map((r) => {
+            const w = weights[r.key] ?? 0;
+            const def = DEFAULT_WEIGHTS[r.key];
+            const Icon = RULE_ICON[r.key];
+            return (
+              <div key={r.key} className="flex items-start gap-3">
+                {Icon && (
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{r.label}</div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {RULE_DESC[r.key] ?? r.why}
+                  </p>
+                  {w > def && (
+                    <p className="mt-1 text-[11px] text-destructive">
+                      Acima do padrão calibrado ({def}).
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                  <input
+                    type="range"
+                    min={0}
+                    max={30}
+                    step={5}
+                    value={w}
+                    onChange={(e) => onChange(r.key, Number(e.target.value))}
+                    className="w-24 accent-primary"
+                  />
+                  <span className="w-5 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+                    {w}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <footer className="flex items-center justify-between border-t border-border px-5 py-3">
+          <button
+            onClick={onReset}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Restaurar padrão
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+          >
+            Concluir
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }

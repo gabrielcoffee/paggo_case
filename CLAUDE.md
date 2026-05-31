@@ -78,15 +78,21 @@ The reference "today" is fixed via `APP_TODAY` env var (default `2026-04-01`) so
 
 ### Risk scoring
 
-5 rules in `src/lib/risk.ts`, each contributing 0..N points to a 0-100 score:
+5 additive rules in `src/lib/risk.ts`, each contributing points to a 0-100 score
+(calibrated v2 — see MEMORY.md for the calibration story and the dropped rules).
+Rule metadata (labels + rationale) lives in `src/lib/risk-rules.ts`, the single source for
+the read-only "Regras" popover and the detail-view labels.
 
-1. `recoverable_x_chronicity` (0-30): unpaid balance weighted by historical late count.
-2. `credit_utilization` (0-20): `openBalance / creditLimit` ratio.
-3. `ent_first_late` (binary 25): Enterprise customer overdue for the first time.
-4. `boleto_stuck` (binary 10): BOLETO + attempts > 2.
-5. `silent_high_value` (binary 15): amount > R$10k, overdue > 30d, no payment yet.
+1. `balance_at_risk` (0-30): recoverable balance, linear up to R$25k.
+2. `aging` (0-20): days overdue, linear up to 60 days.
+3. `chronicity` (0-20): prior late invoices, linear up to 5.
+4. `ent_first_late` (binary 15): Enterprise overdue for the first time (operational, recoverable).
+5. `boleto_stuck` (binary 10): BOLETO + attempts > 2 (technical failure → offer PIX).
 
-Score and the contributing factors (`riskFactors` jsonb) are persisted per invoice and recomputed on any write that affects the input fields.
+Tiers (`riskTier`): critical ≥55, high ≥40, medium ≥20, low ≥1. Observed max ~75.
+Score + contributing factors (`riskFactors` jsonb) are persisted per invoice and recomputed on any
+write that changes a scoring input (`recomputeInvoiceRisk`). When the rules change, re-run
+`npm run db:seed` (child tables empty) or a recompute to refresh persisted scores.
 
 ## Audit Log
 
@@ -123,6 +129,26 @@ npm run lint                 # ESLint
 # - Set env vars (DATABASE_URL, ANTHROPIC_API_KEY, APP_TODAY) on Vercel
 # - Vercel builds and deploys automatically
 ```
+
+## Testing
+
+Vitest. Two tiers:
+
+```bash
+npm run test:unit    # pure logic only — fast (~7s), no DB. Daily feedback loop.
+npm test             # full run incl. DB integration (~2min, hits the Supabase pooler).
+npm run test:watch   # vitest watch mode
+```
+
+- **Unit** (`*.test.ts` next to source): pure functions — `risk.ts`, `aging.ts`, `agreement.ts`,
+  `text.ts`, `invoice-status.ts`. No DB, no mocks.
+- **Integration** (`*.integration.test.ts`): Server Actions against the real DB. Each test seeds a
+  dedicated `TEST-*` customer/invoice, exercises the action, asserts DB + audit state, then deletes
+  it (`beforeEach`/`afterEach` cleanup) — the 8000 seeded rows are never touched. `next/cache` is
+  mocked (`revalidatePath` throws outside a request context). Slow because every query is a remote
+  pooler round-trip.
+- Config: `vitest.config.ts` (node env, `vite-tsconfig-paths` for `@/`), `vitest.setup.ts` loads
+  `.env` (APP_TODAY, DATABASE_URL).
 
 ## Environment Variables
 

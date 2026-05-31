@@ -12,6 +12,7 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "@/lib/invoice-status";
 import type { RiskFactor } from "@/lib/risk";
+import { RULE_LABELS } from "@/lib/risk-rules";
 
 // Minimal detail view for Day 3. The full drawer with notes, audit log, and
 // CRUD actions lands on Day 4.
@@ -140,15 +141,6 @@ function Field({
     </div>
   );
 }
-
-const RULE_LABELS: Record<string, string> = {
-  balance_at_risk: "Valor em aberto",
-  aging: "Tempo de atraso",
-  chronicity: "Cliente cronicamente atrasado",
-  ent_first_late: "Enterprise atrasando 1ª vez",
-  boleto_stuck: "Boleto travado",
-  silent_high_value: "Alto valor sem pagamento",
-};
 
 function ruleLabel(rule: string): string {
   return RULE_LABELS[rule] ?? rule;
