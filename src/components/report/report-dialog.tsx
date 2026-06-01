@@ -26,19 +26,11 @@ const PRESET_DESC: Record<string, string> = {
   vencidas_criticas: "Vencidas + risco alto",
 };
 
-const SCOPES = [
-  { value: "unpaid", label: "Em aberto" },
-  { value: "overdue", label: "Vencidas" },
-  { value: "all", label: "Todas" },
-] as const;
 const SEGMENTS = ["SMB", "MID", "ENT"];
 const STATUSES = Object.keys(STATUS_LABELS) as InvoiceStatus[];
 const COUNTS = [5, 10, 15] as const;
 
 const DEFAULT: ReportConfig = reportConfigSchema.parse({ preset: "maior_risco" });
-
-const inputCls =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring/40 focus:ring-2";
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -178,20 +170,6 @@ export function ReportDialog() {
                   </Chip>
                 ))}
               </div>
-            </Field>
-
-            <Field label="Escopo">
-              <select
-                value={cfg.filters.scope}
-                onChange={(e) => tweakFilter({ scope: e.target.value as ReportConfig["filters"]["scope"] })}
-                className={inputCls}
-              >
-                {SCOPES.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
             </Field>
 
             <Field label="Segmento">
