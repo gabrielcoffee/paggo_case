@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SEGMENT_LABELS, STATUS_LABELS } from "@/lib/invoice-status";
 import type { InvoiceStatus } from "@/generated/prisma/enums";
-import { brl } from "@/lib/format";
+import { brlCompact } from "@/lib/format";
 import { CHANNELS, STATUS_TARGETS, templateVars } from "@/lib/automation/automation-spec";
 import { PRESET_LABELS, REPORT_PRESETS, type ReportPreset } from "@/lib/report/report-config";
 import { createAutomation, previewMatches } from "@/lib/actions/automations";
@@ -60,20 +60,22 @@ function Slider({
   onChange: (n: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <Lbl>{label}</Lbl>
-        <span className="font-mono text-xs font-semibold tabular-nums text-foreground">{display}</span>
+    <div className="flex items-center gap-3">
+      <Lbl>{label}</Lbl>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-24 accent-primary"
+        />
+        <span className="w-16 text-right font-mono text-xs font-semibold tabular-nums text-foreground">
+          {display}
+        </span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-primary"
-      />
     </div>
   );
 }
@@ -306,7 +308,7 @@ export function AutomationForm({
                 <Slider
                   label="Em aberto ≥"
                   value={minOpen}
-                  display={brl(minOpen)}
+                  display={brlCompact(minOpen)}
                   min={0}
                   max={100000}
                   step={5000}
