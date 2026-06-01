@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ReceiptText, Sparkles, LogOut } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Users, Sparkles, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
   { href: "/invoices", label: "Faturas", icon: ReceiptText },
+  { href: "/customers", label: "Clientes", icon: Users },
   { href: "/agent", label: "Agente", icon: Sparkles },
 ];
 

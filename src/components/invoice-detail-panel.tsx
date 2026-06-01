@@ -3,23 +3,22 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { X, Pencil, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
 import { AuditTimeline } from "@/components/audit-timeline";
+import { IconBtn } from "@/components/icon-button";
+import { NoteList } from "@/components/note-list";
 import { StatusActions } from "@/components/forms/status-actions";
 import { NoteForm } from "@/components/forms/note-form";
 import { FollowUpForm } from "@/components/forms/followup-form";
 import { AgreementModal } from "@/components/forms/agreement-modal";
 import {
   type InvoiceDetail,
-  type DetailNote,
   type DetailAgreement,
 } from "@/lib/actions/invoice-detail";
 import { getDetail, invalidateDetail } from "@/lib/detail-cache";
 import type { InvoiceRow } from "@/lib/queries/invoice-types";
-import { updateNote, deleteNote, deleteAgreement } from "@/lib/actions/invoices";
+import { deleteAgreement } from "@/lib/actions/invoices";
 import { brl, date, dateTime } from "@/lib/format";
 import { daysOverdue } from "@/lib/aging";
 import { SEGMENT_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/invoice-status";
@@ -60,8 +59,8 @@ function stubFromRow(row: InvoiceRow): InvoiceDetail {
 }
 
 // Presentational detail body (no slide-over wrapper). Reused by InvoiceSheet (on the
-// invoices list) and by the agent workspace split panel. With `initialRow` it renders
-// instantly from memory; with only an `id` it fetches first (shows a loader).
+// invoices list) and by the agent workspace / customer panel. With `initialRow` it
+// renders instantly from memory; with only an `id` it fetches first (shows a loader).
 export function InvoiceDetailPanel({
   id,
   initialRow,
@@ -142,18 +141,11 @@ export function InvoiceDetailPanel({
             </TabsContent>
             <TabsContent value="notes">
               <div className="space-y-4">
-                <NoteForm invoiceId={view.id} onDone={refresh} />
+                <NoteForm entityId={view.id} onDone={refresh} />
                 {extrasLoading ? (
                   <p className="text-sm text-muted-foreground">Carregando…</p>
                 ) : (
-                  <ul className="space-y-3">
-                    {view.notes.map((n) => (
-                      <NoteItem key={n.id} note={n} onDone={refresh} />
-                    ))}
-                    {view.notes.length === 0 && (
-                      <li className="text-sm text-muted-foreground">Sem notas ainda.</li>
-                    )}
-                  </ul>
+                  <NoteList notes={view.notes} onDone={refresh} />
                 )}
               </div>
             </TabsContent>
@@ -265,7 +257,7 @@ function Overview({
             </>
           )}
         </ul>
-        <FollowUpForm invoiceId={detail.id} onDone={onDone} />
+        <FollowUpForm entityId={detail.id} onDone={onDone} />
       </section>
     </div>
   );
@@ -303,102 +295,6 @@ function Agreements({
         ))
       )}
     </div>
-  );
-}
-
-function IconBtn({
-  children,
-  label,
-  onClick,
-  disabled,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-    >
-      {children}
-    </button>
-  );
-}
-
-function NoteItem({ note, onDone }: { note: DetailNote; onDone: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [body, setBody] = useState(note.body);
-  const [pending, start] = useTransition();
-
-  if (editing) {
-    return (
-      <li className="rounded-lg border border-border p-3">
-        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
-        <div className="mt-2 flex gap-2">
-          <Button
-            size="sm"
-            loading={pending}
-            disabled={pending || !body.trim()}
-            onClick={() =>
-              start(async () => {
-                const r = await updateNote({ noteId: note.id, body });
-                if (r.ok) {
-                  setEditing(false);
-                  onDone();
-                }
-              })
-            }
-          >
-            Salvar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={pending}
-            onClick={() => {
-              setBody(note.body);
-              setEditing(false);
-            }}
-          >
-            Cancelar
-          </Button>
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li className="rounded-lg border border-border p-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="whitespace-pre-wrap text-sm">{note.body}</p>
-        <div className="flex shrink-0 gap-0.5">
-          <IconBtn label="Editar nota" onClick={() => setEditing(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </IconBtn>
-          <IconBtn
-            label="Excluir nota"
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                const r = await deleteNote(note.id);
-                if (r.ok) onDone();
-              })
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </IconBtn>
-        </div>
-      </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">
-        {note.author} · {dateTime(note.createdAt)}
-      </p>
-    </li>
   );
 }
 

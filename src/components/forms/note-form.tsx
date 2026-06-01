@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { addNote } from "@/lib/actions/invoices";
 
 export function NoteForm({
-  invoiceId,
+  entityId,
+  entityType = "invoice",
   onDone,
 }: {
-  invoiceId: string;
+  entityId: string;
+  entityType?: "invoice" | "customer";
   onDone: () => void;
 }) {
   const [body, setBody] = useState("");
@@ -21,7 +23,7 @@ export function NoteForm({
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await addNote({ entityType: "invoice", entityId: invoiceId, body });
+          const r = await addNote({ entityType, entityId, body });
           if (!r.ok) setErr(r.error);
           else {
             setBody("");

@@ -16,10 +16,12 @@ const inputCls =
   "h-8 rounded-md border border-input bg-background px-2.5 text-sm outline-none ring-ring/40 focus:ring-2";
 
 export function FollowUpForm({
-  invoiceId,
+  entityId,
+  entityType = "invoice",
   onDone,
 }: {
-  invoiceId: string;
+  entityId: string;
+  entityType?: "invoice" | "customer";
   onDone: () => void;
 }) {
   const [dueAt, setDueAt] = useState("");
@@ -35,8 +37,8 @@ export function FollowUpForm({
         const iso = dueAt ? new Date(dueAt).toISOString() : "";
         start(async () => {
           const r = await scheduleFollowUp({
-            entityType: "invoice",
-            entityId: invoiceId,
+            entityType,
+            entityId,
             dueAt: iso,
             channel: channel as "phone" | "email" | "whatsapp",
             body,
