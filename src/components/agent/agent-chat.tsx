@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/agent/markdown";
 import { PlanModal, type PlanData } from "@/components/agent/plan-modal";
 import { AgentChart } from "@/components/agent/agent-charts";
+import type { EntitySelect } from "@/components/agent/chat-entity-list";
 import { ToolTrace } from "@/components/agent/tool-trace";
 import type { TraceEntry } from "@/lib/agent/loop";
 import { listChats, createChat, getChatMessages } from "@/lib/queries/chats";
@@ -27,7 +28,7 @@ const SUGGESTIONS = [
   "Faturas acima de R$5 mil de clientes com 3+ atrasos: prepare negociação + nota + follow-up.",
 ];
 
-export function AgentChat() {
+export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -225,7 +226,13 @@ export function AgentChat() {
           )}
 
           {messages.map((m, i) => (
-            <Bubble key={i} msg={m} streaming={loading && i === messages.length - 1} onStatus={setPlanStatus} />
+            <Bubble
+              key={i}
+              msg={m}
+              streaming={loading && i === messages.length - 1}
+              onStatus={setPlanStatus}
+              onSelect={onSelect}
+            />
           ))}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -259,10 +266,12 @@ function Bubble({
   msg,
   streaming,
   onStatus,
+  onSelect,
 }: {
   msg: Msg;
   streaming: boolean;
   onStatus: (planId: string, status: string) => void;
+  onSelect?: EntitySelect;
 }) {
   const isUser = msg.role === "user";
   return (
@@ -293,7 +302,7 @@ function Bubble({
           )}
         </div>
         {msg.charts?.map((c, i) => (
-          <AgentChart key={i} type={c.type} data={c.data} />
+          <AgentChart key={i} type={c.type} data={c.data} onSelect={onSelect} />
         ))}
         {msg.plans?.map((p) => (
           <PlanModal key={p.id} plan={p} onStatus={onStatus} />

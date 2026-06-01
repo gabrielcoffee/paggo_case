@@ -4,7 +4,7 @@ import { daysOverdue } from "@/lib/aging";
 import { fetchInvoiceDetail } from "@/lib/actions/invoice-detail";
 import { fetchDashboard } from "@/lib/queries/dashboard";
 import { planStepsSchema, describeStep } from "@/lib/agent/plan-steps";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 export type ChartPayload = { type: string; data: unknown };
 export type ToolOutcome = {
@@ -61,6 +61,18 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "searchCustomers",
+    description:
+      "Busca clientes (padrão: mais inadimplentes primeiro). Retorna id, nome, segmento, AR em aberto, AR vencido e nº de faturas vencidas. Use para perguntas sobre clientes inadimplentes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        q: { type: "string", description: "Nome ou ID do cliente" },
+        n: { type: "number", description: "Quantos clientes (padrão 10)" },
+      },
+    },
+  },
+  {
     name: "showChart",
     description:
       "Mostra um gráfico na resposta. type: 'aging' (R$ em aberto por faixa), 'ar_trend' (faturado×recebido por mês), 'risk_tiers' (faturas por tier de risco), 'top_risk' (top-N faturas por risco).",
@@ -103,13 +115,15 @@ export async function runTool(
   try {
     switch (name) {
       case "searchInvoices":
-        return { content: await searchInvoices(input) };
+        return await searchInvoices(input);
       case "getInvoice":
         return { content: await getInvoice(String(input.id ?? "")) };
       case "getTopRisk":
-        return { content: await getTopRisk(input) };
+        return await getTopRisk(input);
       case "getPortfolioStats":
         return { content: await getPortfolioStats() };
+      case "searchCustomers":
+        return await searchCustomers(input);
       case "showChart":
         return await showChart(input);
       case "proposeActions":
@@ -124,7 +138,7 @@ export async function runTool(
 
 // --- read impls -----------------------------------------------------------
 
-async function searchInvoices(input: Record<string, unknown>): Promise<string> {
+async function searchInvoices(input: Record<string, unknown>): Promise<ToolOutcome> {
   const today = appToday();
   const and: Prisma.InvoiceWhereInput[] = [];
   const scope = input.scope ?? "unpaid";
@@ -175,7 +189,20 @@ async function searchInvoices(input: Record<string, unknown>): Promise<string> {
     .filter((r) => r.open >= minOpen)
     .slice(0, limit);
 
-  return JSON.stringify({ total: mapped.length, faturas: mapped });
+  return {
+    content: JSON.stringify({ total: mapped.length, faturas: mapped }),
+    chart: {
+      type: "invoice_list",
+      data: mapped.map((m) => ({
+        id: m.id,
+        cliente: m.cliente,
+        seg: m.seg,
+        open: m.open,
+        risco: m.risco,
+        status: m.status,
+      })),
+    },
+  };
 }
 
 async function getInvoice(id: string): Promise<string> {
@@ -191,7 +218,7 @@ async function getInvoice(id: string): Promise<string> {
   });
 }
 
-async function getTopRisk(input: Record<string, unknown>): Promise<string> {
+async function getTopRisk(input: Record<string, unknown>): Promise<ToolOutcome> {
   const n = Math.min(Number(input.n) || 10, 50);
   const today = appToday();
   const scope = input.scope ?? "unpaid";
@@ -203,12 +230,56 @@ async function getTopRisk(input: Record<string, unknown>): Promise<string> {
     where, orderBy: [{ riskScore: "desc" }, { id: "asc" }], take: n,
     select: { id: true, amount: true, amountPaid: true, riskScore: true, status: true, customer: { select: { name: true, segment: true } } },
   });
-  return JSON.stringify(
-    rows.map((r) => ({
-      id: r.id, cliente: r.customer.name, seg: r.customer.segment,
-      open: Number(r.amount) - Number(r.amountPaid), risco: r.riskScore, status: r.status,
-    })),
-  );
+  const list = rows.map((r) => ({
+    id: r.id,
+    cliente: r.customer.name,
+    seg: r.customer.segment,
+    open: Number(r.amount) - Number(r.amountPaid),
+    risco: r.riskScore,
+    status: r.status,
+  }));
+  return { content: JSON.stringify(list), chart: { type: "invoice_list", data: list } };
+}
+
+async function searchCustomers(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const today = appToday();
+  const n = Math.min(Number(input.n) || 10, 50);
+  const q = typeof input.q === "string" ? input.q.trim() : "";
+  const filter = q
+    ? Prisma.sql`WHERE c.name ILIKE ${"%" + q + "%"} OR c.id ILIKE ${"%" + q + "%"}`
+    : Prisma.empty;
+  const rows = await prisma.$queryRaw<
+    {
+      id: string;
+      name: string;
+      segment: string;
+      open_ar: number;
+      overdue_ar: number;
+      overdue_count: number;
+    }[]
+  >`
+    SELECT c.id, c.name, c.segment::text AS segment,
+      COALESCE(SUM(i.amount - i."amountPaid") FILTER (WHERE i."paymentStatus" <> 'paid'), 0)::float8 AS open_ar,
+      COALESCE(SUM(i.amount - i."amountPaid") FILTER (WHERE i."paymentStatus" <> 'paid' AND i."dueDate" < ${today}), 0)::float8 AS overdue_ar,
+      COUNT(i.id) FILTER (WHERE i."paymentStatus" <> 'paid' AND i."dueDate" < ${today})::int AS overdue_count
+    FROM "Customer" c
+    LEFT JOIN "Invoice" i ON i."customerId" = c.id
+    ${filter}
+    GROUP BY c.id, c.name, c.segment
+    ORDER BY overdue_ar DESC, open_ar DESC, c.id ASC
+    LIMIT ${n}`;
+  const list = rows.map((r) => ({
+    id: r.id,
+    nome: r.name,
+    seg: r.segment,
+    openAr: Number(r.open_ar),
+    overdueAr: Number(r.overdue_ar),
+    overdueCount: Number(r.overdue_count),
+  }));
+  return {
+    content: JSON.stringify({ total: list.length, clientes: list }),
+    chart: { type: "customer_list", data: list },
+  };
 }
 
 async function getPortfolioStats(): Promise<string> {
