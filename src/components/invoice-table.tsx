@@ -26,6 +26,7 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { InvoiceSheet } from "@/components/invoice-sheet";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { InvoiceCreateModal } from "@/components/forms/invoice-create-modal";
+import { ReportDialog } from "@/components/report/report-dialog";
 import { RISK_RULES } from "@/lib/risk-rules";
 import { PAGE_SIZE, type InvoiceRow, type ScopePreset } from "@/lib/queries/invoice-types";
 import { agingBucket, AGING_BUCKETS, AGING_LABELS, daysOverdue } from "@/lib/aging";
@@ -284,6 +285,7 @@ export function InvoiceTable({
           <p className="text-xs text-muted-foreground">Triagem por risco · carteira B2B</p>
         </div>
         <div className="flex items-center gap-3 text-right text-xs text-muted-foreground">
+          <ReportDialog />
           <InvoiceCreateModal customers={customers} />
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           <span>
