@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { appToday } from "@/lib/risk";
 import { daysOverdue } from "@/lib/aging";
 import {
+  addDays,
   startOfDay,
   endOfDay,
   startOfWeek,
@@ -9,6 +10,7 @@ import {
   startOfMonth,
   endOfMonth,
 } from "date-fns";
+import { RISK_RULES } from "@/lib/risk-rules";
 import { fetchInvoiceDetail } from "@/lib/actions/invoice-detail";
 import { fetchDashboard } from "@/lib/queries/dashboard";
 import { planStepsSchema, describeStep } from "@/lib/agent/plan-steps";
@@ -79,6 +81,109 @@ export const TOOL_DEFS = [
         n: { type: "number", description: "Quantos clientes (padrão 10)" },
       },
     },
+  },
+  {
+    name: "getCustomer",
+    description:
+      "Perfil de um cliente (por nome ou ID): agregados (AR aberto/vencido, nº faturas/vencidas) + lista das faturas dele.",
+    input_schema: {
+      type: "object",
+      properties: { q: { type: "string", description: "Nome ou ID do cliente" } },
+      required: ["q"],
+    },
+  },
+  {
+    name: "getCustomerInvoices",
+    description: "Faturas de um cliente (por nome ou ID). scope: unpaid|overdue|all.",
+    input_schema: {
+      type: "object",
+      properties: {
+        q: { type: "string" },
+        scope: { type: "string", enum: ["unpaid", "overdue", "all"] },
+      },
+      required: ["q"],
+    },
+  },
+  {
+    name: "getWorklist",
+    description:
+      "O que cobrar HOJE: maior risco entre faturas acionáveis (em aberto, não pagas, ainda não em acordo). Use para 'o que priorizo?'.",
+    input_schema: { type: "object", properties: { n: { type: "number" } } },
+  },
+  {
+    name: "getDueSoon",
+    description: "Faturas que VENCEM nos próximos N dias (ainda não vencidas). Preventivo.",
+    input_schema: {
+      type: "object",
+      properties: { days: { type: "number", description: "Janela em dias (padrão 7)" } },
+    },
+  },
+  {
+    name: "getLargestExposures",
+    description: "Maiores saldos em aberto (R$) da carteira.",
+    input_schema: { type: "object", properties: { n: { type: "number" } } },
+  },
+  {
+    name: "getInstallmentsDue",
+    description:
+      "Parcelas de acordo que vencem no período (não pagas). period: today|week|month.",
+    input_schema: {
+      type: "object",
+      properties: { period: { type: "string", enum: ["today", "week", "month"] } },
+    },
+  },
+  {
+    name: "getBrokenAgreements",
+    description: "Acordos com parcela vencida e não paga (acordos em risco / quebrados).",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "getExpectedCashflow",
+    description:
+      "Recebimento projetado das parcelas de acordo no período (não pagas). period: today|week|month.",
+    input_schema: {
+      type: "object",
+      properties: { period: { type: "string", enum: ["today", "week", "month"] } },
+    },
+  },
+  {
+    name: "countInvoices",
+    description:
+      "Apenas a CONTAGEM de faturas para um critério. Use para 'quantas …?'. Filtros: scope, status[], segment[], minRisk, method.",
+    input_schema: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["unpaid", "overdue", "all"] },
+        status: { type: "array", items: { type: "string" } },
+        segment: { type: "array", items: { type: "string", enum: ["SMB", "MID", "ENT"] } },
+        minRisk: { type: "number" },
+        method: { type: "string", enum: ["BOLETO", "PIX", "CREDIT_CARD", "BANK_TRANSFER"] },
+      },
+    },
+  },
+  {
+    name: "getRecentActivity",
+    description: "Últimos eventos de auditoria (quem fez o quê) no período. period: today|week|month|all.",
+    input_schema: {
+      type: "object",
+      properties: { period: { type: "string", enum: ["today", "week", "month", "all"] } },
+    },
+  },
+  {
+    name: "getSegmentBreakdown",
+    description: "AR aberto/vencido e nº de faturas por segmento (SMB/MID/ENT).",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "getPaymentMethodBreakdown",
+    description: "AR aberto e nº de faturas por método de pagamento.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "getRuleImpact",
+    description:
+      "Quantas faturas não pagas cada regra de risco aciona + pontos médios. Explica o peso das regras na carteira.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "listAgreements",
@@ -171,6 +276,32 @@ export async function runTool(
         return { content: await listFollowUps(input) };
       case "listNotes":
         return { content: await listNotes(input) };
+      case "getCustomer":
+        return await getCustomer(input);
+      case "getCustomerInvoices":
+        return await getCustomerInvoices(input);
+      case "getWorklist":
+        return await getWorklist(input);
+      case "getDueSoon":
+        return await getDueSoon(input);
+      case "getLargestExposures":
+        return await getLargestExposures(input);
+      case "getInstallmentsDue":
+        return { content: await getInstallmentsDue(input) };
+      case "getBrokenAgreements":
+        return { content: await getBrokenAgreements() };
+      case "getExpectedCashflow":
+        return { content: await getExpectedCashflow(input) };
+      case "countInvoices":
+        return { content: await countInvoices(input) };
+      case "getRecentActivity":
+        return { content: await getRecentActivity(input) };
+      case "getSegmentBreakdown":
+        return { content: await getSegmentBreakdown() };
+      case "getPaymentMethodBreakdown":
+        return { content: await getPaymentMethodBreakdown() };
+      case "getRuleImpact":
+        return { content: await getRuleImpact() };
       case "showChart":
         return await showChart(input);
       case "proposeActions":
@@ -336,6 +467,350 @@ async function getPortfolioStats(): Promise<string> {
     dsoRealizado: d.dso.realized, dsoAtual: d.dso.current,
     tiers: d.tiers, status: d.statusCounts,
   });
+}
+
+const INV_SELECT = {
+  id: true,
+  amount: true,
+  amountPaid: true,
+  riskScore: true,
+  status: true,
+  customer: { select: { name: true, segment: true } },
+} as const;
+
+type InvRow = {
+  id: string;
+  amount: Prisma.Decimal;
+  amountPaid: Prisma.Decimal;
+  riskScore: number;
+  status: string;
+  customer: { name: string; segment: string };
+};
+
+function invoiceListItems(rows: InvRow[]) {
+  return rows.map((r) => ({
+    id: r.id,
+    cliente: r.customer.name,
+    seg: r.customer.segment,
+    open: Number(r.amount) - Number(r.amountPaid),
+    risco: r.riskScore,
+    status: r.status,
+  }));
+}
+
+async function resolveCustomer(q: string) {
+  const t = q.trim();
+  if (!t) return null;
+  const byId = await prisma.customer.findUnique({ where: { id: t } });
+  if (byId) return byId;
+  return prisma.customer.findFirst({
+    where: { name: { contains: t, mode: "insensitive" } },
+    orderBy: { name: "asc" },
+  });
+}
+
+async function getCustomer(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const c = await resolveCustomer(String(input.q ?? ""));
+  if (!c) return { content: "Cliente não encontrado.", isError: true };
+  const today = appToday();
+  const invs = await prisma.invoice.findMany({
+    where: { customerId: c.id },
+    orderBy: [{ riskScore: "desc" }, { id: "asc" }],
+    select: { ...INV_SELECT, paymentStatus: true, dueDate: true },
+  });
+  let openAr = 0;
+  let overdueAr = 0;
+  let overdueCount = 0;
+  for (const i of invs) {
+    if (i.paymentStatus === "paid") continue;
+    const open = Number(i.amount) - Number(i.amountPaid);
+    openAr += open;
+    if (i.dueDate < today) {
+      overdueAr += open;
+      overdueCount += 1;
+    }
+  }
+  const list = invoiceListItems(invs);
+  return {
+    content: JSON.stringify({
+      cliente: {
+        id: c.id,
+        nome: c.name,
+        seg: c.segment,
+        limite: Number(c.creditLimit),
+        arAberto: openAr,
+        arVencido: overdueAr,
+        faturas: invs.length,
+        vencidas: overdueCount,
+      },
+    }),
+    chart: { type: "invoice_list", data: list },
+  };
+}
+
+async function getCustomerInvoices(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const c = await resolveCustomer(String(input.q ?? ""));
+  if (!c) return { content: "Cliente não encontrado.", isError: true };
+  const today = appToday();
+  const scope = input.scope ?? "unpaid";
+  const where: Prisma.InvoiceWhereInput = {
+    customerId: c.id,
+    ...(scope === "unpaid"
+      ? { paymentStatus: { not: "paid" } }
+      : scope === "overdue"
+        ? { paymentStatus: { not: "paid" }, dueDate: { lt: today } }
+        : {}),
+  };
+  const invs = await prisma.invoice.findMany({
+    where,
+    orderBy: [{ riskScore: "desc" }, { id: "asc" }],
+    take: 50,
+    select: INV_SELECT,
+  });
+  const list = invoiceListItems(invs);
+  return {
+    content: JSON.stringify({ cliente: c.name, total: list.length, faturas: list }),
+    chart: { type: "invoice_list", data: list },
+  };
+}
+
+async function getWorklist(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const n = Math.min(Number(input.n) || 15, 50);
+  const rows = await prisma.invoice.findMany({
+    where: {
+      paymentStatus: { not: "paid" },
+      status: { in: ["open", "in_negotiation", "disputed"] as never[] },
+    },
+    orderBy: [{ riskScore: "desc" }, { id: "asc" }],
+    take: n,
+    select: INV_SELECT,
+  });
+  const list = invoiceListItems(rows);
+  return {
+    content: JSON.stringify({ total: list.length, faturas: list }),
+    chart: { type: "invoice_list", data: list },
+  };
+}
+
+async function getDueSoon(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const today = appToday();
+  const days = Math.min(Number(input.days) || 7, 90);
+  const rows = await prisma.invoice.findMany({
+    where: {
+      paymentStatus: { not: "paid" },
+      dueDate: { gte: startOfDay(today), lte: endOfDay(addDays(today, days)) },
+    },
+    orderBy: [{ dueDate: "asc" }],
+    take: 50,
+    select: INV_SELECT,
+  });
+  const list = invoiceListItems(rows);
+  return {
+    content: JSON.stringify({ dias: days, total: list.length, faturas: list }),
+    chart: { type: "invoice_list", data: list },
+  };
+}
+
+async function getLargestExposures(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const n = Math.min(Number(input.n) || 10, 50);
+  const rows = await prisma.invoice.findMany({
+    where: { paymentStatus: { not: "paid" } },
+    orderBy: [{ amount: "desc" }],
+    take: 200,
+    select: INV_SELECT,
+  });
+  const sorted = rows
+    .map((r) => ({ r, open: Number(r.amount) - Number(r.amountPaid) }))
+    .sort((a, b) => b.open - a.open)
+    .slice(0, n)
+    .map((x) => x.r);
+  const list = invoiceListItems(sorted);
+  return {
+    content: JSON.stringify({ total: list.length, faturas: list }),
+    chart: { type: "invoice_list", data: list },
+  };
+}
+
+async function getInstallmentsDue(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const period = String(input.period ?? "week");
+  const range =
+    periodRange(period, today) ?? {
+      gte: startOfWeek(today, { weekStartsOn: 1 }),
+      lte: endOfWeek(today, { weekStartsOn: 1 }),
+    };
+  const rows = await prisma.agreementInstallment.findMany({
+    where: { dueDate: { gte: range.gte, lte: range.lte }, status: { not: "paid" } },
+    orderBy: { dueDate: "asc" },
+    take: 100,
+    include: {
+      agreement: {
+        include: { originalInvoice: { select: { id: true, customer: { select: { name: true } } } } },
+      },
+    },
+  });
+  const parcelas = rows.map((r) => ({
+    fatura: r.agreement.originalInvoiceId,
+    cliente: r.agreement.originalInvoice.customer.name,
+    parcela: r.installmentNumber,
+    vencimento: r.dueDate.toISOString(),
+    valor: Number(r.amount),
+    status: r.status,
+  }));
+  const total = parcelas.reduce((s, p) => s + p.valor, 0);
+  return JSON.stringify({ periodo: period, total: parcelas.length, valorTotal: total, parcelas });
+}
+
+async function getBrokenAgreements(): Promise<string> {
+  const today = appToday();
+  const overdue = await prisma.agreementInstallment.findMany({
+    where: { dueDate: { lt: startOfDay(today) }, status: { not: "paid" } },
+    include: {
+      agreement: {
+        include: { originalInvoice: { select: { id: true, customer: { select: { name: true } } } } },
+      },
+    },
+  });
+  const byAg = new Map<
+    string,
+    { fatura: string; cliente: string; parcelasVencidas: number; valorVencido: number }
+  >();
+  for (const i of overdue) {
+    const ag = i.agreement;
+    const e =
+      byAg.get(ag.id) ?? {
+        fatura: ag.originalInvoiceId,
+        cliente: ag.originalInvoice.customer.name,
+        parcelasVencidas: 0,
+        valorVencido: 0,
+      };
+    e.parcelasVencidas += 1;
+    e.valorVencido += Number(i.amount);
+    byAg.set(ag.id, e);
+  }
+  const acordos = [...byAg.values()].sort((a, b) => b.valorVencido - a.valorVencido);
+  return JSON.stringify({ total: acordos.length, acordos });
+}
+
+async function getExpectedCashflow(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const period = String(input.period ?? "month");
+  const range =
+    periodRange(period, today) ?? { gte: startOfMonth(today), lte: endOfMonth(today) };
+  const rows = await prisma.agreementInstallment.findMany({
+    where: { dueDate: { gte: range.gte, lte: range.lte }, status: { not: "paid" } },
+    select: { amount: true },
+  });
+  const total = rows.reduce((s, r) => s + Number(r.amount), 0);
+  return JSON.stringify({ periodo: period, parcelas: rows.length, recebimentoProjetado: total });
+}
+
+async function countInvoices(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const and: Prisma.InvoiceWhereInput[] = [];
+  if (input.scope === "unpaid") and.push({ paymentStatus: { not: "paid" } });
+  if (input.scope === "overdue")
+    and.push({ paymentStatus: { not: "paid" } }, { dueDate: { lt: today } });
+  if (Array.isArray(input.status) && input.status.length)
+    and.push({ status: { in: input.status as never[] } });
+  if (Array.isArray(input.segment) && input.segment.length)
+    and.push({ customer: { segment: { in: input.segment as never[] } } });
+  if (typeof input.minRisk === "number") and.push({ riskScore: { gte: input.minRisk } });
+  if (typeof input.method === "string")
+    and.push({ paymentMethod: input.method as never });
+  const count = await prisma.invoice.count({ where: and.length ? { AND: and } : {} });
+  return JSON.stringify({ count });
+}
+
+async function getRecentActivity(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const period = String(input.period ?? "today");
+  const range = periodRange(period, today);
+  const where: Prisma.AuditEventWhereInput = range
+    ? { timestamp: { gte: range.gte, lte: range.lte } }
+    : {};
+  const rows = await prisma.auditEvent.findMany({
+    where,
+    orderBy: { timestamp: "desc" },
+    take: 50,
+  });
+  const eventos = rows.map((e) => ({
+    acao: e.action,
+    origem: e.origin,
+    autor: e.actor,
+    tipo: e.entityType,
+    ref: e.entityId,
+    quando: e.timestamp.toISOString(),
+  }));
+  return JSON.stringify({ periodo: period, total: eventos.length, eventos });
+}
+
+async function getSegmentBreakdown(): Promise<string> {
+  const today = appToday();
+  const rows = await prisma.$queryRaw<
+    { segment: string; count: number; open_ar: number; overdue_ar: number }[]
+  >`
+    SELECT c.segment::text AS segment,
+      COUNT(i.id)::int AS count,
+      COALESCE(SUM(i.amount - i."amountPaid") FILTER (WHERE i."paymentStatus" <> 'paid'), 0)::float8 AS open_ar,
+      COALESCE(SUM(i.amount - i."amountPaid") FILTER (WHERE i."paymentStatus" <> 'paid' AND i."dueDate" < ${today}), 0)::float8 AS overdue_ar
+    FROM "Customer" c
+    LEFT JOIN "Invoice" i ON i."customerId" = c.id
+    GROUP BY c.segment
+    ORDER BY overdue_ar DESC`;
+  return JSON.stringify({
+    segmentos: rows.map((r) => ({
+      segmento: r.segment,
+      faturas: Number(r.count),
+      arAberto: Number(r.open_ar),
+      arVencido: Number(r.overdue_ar),
+    })),
+  });
+}
+
+async function getPaymentMethodBreakdown(): Promise<string> {
+  const rows = await prisma.$queryRaw<{ method: string; count: number; open_ar: number }[]>`
+    SELECT i."paymentMethod"::text AS method,
+      COUNT(i.id)::int AS count,
+      COALESCE(SUM(i.amount - i."amountPaid") FILTER (WHERE i."paymentStatus" <> 'paid'), 0)::float8 AS open_ar
+    FROM "Invoice" i
+    GROUP BY i."paymentMethod"
+    ORDER BY open_ar DESC`;
+  return JSON.stringify({
+    metodos: rows.map((r) => ({
+      metodo: r.method,
+      faturas: Number(r.count),
+      arAberto: Number(r.open_ar),
+    })),
+  });
+}
+
+async function getRuleImpact(): Promise<string> {
+  const rows = await prisma.invoice.findMany({
+    where: { paymentStatus: { not: "paid" } },
+    select: { riskFactors: true },
+    take: 5000,
+  });
+  const agg = new Map<string, { count: number; sum: number }>();
+  for (const r of rows) {
+    const factors = (r.riskFactors as unknown as { rule: string; points: number }[]) ?? [];
+    for (const f of factors) {
+      const e = agg.get(f.rule) ?? { count: 0, sum: 0 };
+      e.count += 1;
+      e.sum += f.points;
+      agg.set(f.rule, e);
+    }
+  }
+  const regras = RISK_RULES.map((rule) => {
+    const e = agg.get(rule.key);
+    return {
+      regra: rule.label,
+      key: rule.key,
+      faturasAcionadas: e?.count ?? 0,
+      pontosMedios: e && e.count ? Math.round((e.sum / e.count) * 10) / 10 : 0,
+    };
+  });
+  return JSON.stringify({ amostra: rows.length, regras });
 }
 
 function periodRange(period: string, today: Date): { gte: Date; lte: Date } | null {
