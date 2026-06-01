@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Play, Trash2, Zap, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { dateTime } from "@/lib/format";
@@ -24,6 +25,7 @@ export function AutomationsPanel({ today }: { today: string }) {
   const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setRules(await listAutomations());
@@ -63,6 +65,8 @@ export function AutomationsPanel({ today }: { today: string }) {
   }
 
   async function remove(id: string) {
+    if (!(await confirm({ title: "Excluir automação", description: "Excluir esta automação e seu histórico? Esta ação não pode ser desfeita." })))
+      return;
     setBusy(id);
     try {
       await deleteAutomation(id);

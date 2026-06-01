@@ -40,9 +40,9 @@ const s = StyleSheet.create({
   kpiLabel: { fontSize: 8, color: "#888", textTransform: "uppercase" },
   kpiValue: { fontSize: 13, fontFamily: "Helvetica-Bold", marginTop: 2 },
   thead: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#333", paddingBottom: 4, marginBottom: 2 },
-  th: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#444", textTransform: "uppercase" },
+  th: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#444", textTransform: "uppercase", paddingHorizontal: 4 },
   row: { flexDirection: "row", paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: "#e2e2e2" },
-  cell: { fontSize: 9 },
+  cell: { fontSize: 9, paddingHorizontal: 4 },
   footer: { position: "absolute", bottom: 24, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", fontSize: 8, color: "#999" },
 });
 

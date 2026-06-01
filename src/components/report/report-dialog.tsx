@@ -14,12 +14,17 @@ import {
   COLUMN_LABELS,
   PRESET_LABELS,
   PRESETS,
-  REPORT_PRESETS,
   reportConfigSchema,
   type ColumnKey,
   type ReportConfig,
   type ReportPreset,
 } from "@/lib/report/report-config";
+
+const PRESET_DESC: Record<string, string> = {
+  maior_risco: "Top por score de risco",
+  maior_exposicao: "Maiores valores em aberto",
+  vencidas_criticas: "Vencidas + risco alto",
+};
 
 const SCOPES = [
   { value: "unpaid", label: "Em aberto" },
@@ -69,7 +74,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function ReportDialog() {
   const [open, setOpen] = useState(false);
   const [cfg, setCfg] = useState<ReportConfig>(DEFAULT);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "download" | "print">(null);
 
   // Picking a preset prefills sort/filters/columns; any manual tweak flips to custom.
   function applyPreset(preset: ReportPreset) {
@@ -93,7 +98,7 @@ export function ReportDialog() {
   }
 
   async function download() {
-    setBusy(true);
+    setBusy("download");
     try {
       const blob = await generate();
       const url = URL.createObjectURL(blob);
@@ -107,12 +112,12 @@ export function ReportDialog() {
       toast.error("Falha ao gerar relatório");
       console.error(e);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function print() {
-    setBusy(true);
+    setBusy("print");
     try {
       const blob = await generate();
       const url = URL.createObjectURL(blob);
@@ -123,7 +128,7 @@ export function ReportDialog() {
       toast.error("Falha ao gerar relatório");
       console.error(e);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -140,17 +145,34 @@ export function ReportDialog() {
 
           <div className="space-y-4">
             <Field label="Tipo de relatório">
-              <select
-                value={cfg.preset}
-                onChange={(e) => applyPreset(e.target.value as ReportPreset)}
-                className={inputCls}
-              >
-                {REPORT_PRESETS.map((p) => (
-                  <option key={p} value={p}>
-                    {PRESET_LABELS[p]}
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-3 gap-2">
+                {(["maior_risco", "maior_exposicao", "vencidas_criticas"] as const).map((p) => {
+                  const active = cfg.preset === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      className={cn(
+                        "rounded-md border p-2.5 text-left transition-colors",
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-input hover:border-primary/40 hover:bg-accent/40",
+                      )}
+                    >
+                      <span className={cn("block text-xs font-medium", active ? "text-primary" : "text-foreground")}>
+                        {PRESET_LABELS[p]}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
+                        {PRESET_DESC[p]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {cfg.preset === "custom" && (
+                <span className="text-[11px] text-muted-foreground">Personalizado (filtros ajustados)</span>
+              )}
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
@@ -239,10 +261,10 @@ export function ReportDialog() {
           </div>
 
           <div className="mt-2 flex justify-end gap-2">
-            <Button variant="outline" onClick={print} loading={busy} disabled={busy}>
+            <Button variant="outline" onClick={print} loading={busy === "print"} disabled={busy !== null}>
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
-            <Button onClick={download} loading={busy} disabled={busy}>
+            <Button onClick={download} loading={busy === "download"} disabled={busy !== null}>
               <Download className="h-4 w-4" /> Baixar PDF
             </Button>
           </div>

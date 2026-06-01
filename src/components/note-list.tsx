@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { IconBtn } from "@/components/icon-button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { dateTime } from "@/lib/format";
 import type { DetailNote } from "@/lib/actions/invoice-detail";
 
@@ -42,6 +43,7 @@ function NoteItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(note.body);
+  const confirm = useConfirm();
 
   if (editing && onUpdate) {
     return (
@@ -87,7 +89,13 @@ function NoteItem({
               </IconBtn>
             )}
             {onDelete && (
-              <IconBtn label="Excluir nota" onClick={() => onDelete(note.id)}>
+              <IconBtn
+                label="Excluir nota"
+                onClick={async () => {
+                  if (await confirm({ title: "Excluir nota", description: "Excluir esta nota? Esta ação não pode ser desfeita." }))
+                    onDelete(note.id);
+                }}
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </IconBtn>
             )}

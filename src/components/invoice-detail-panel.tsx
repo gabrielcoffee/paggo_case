@@ -8,6 +8,7 @@ import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
 import { AuditTimeline } from "@/components/audit-timeline";
 import { IconBtn } from "@/components/icon-button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NoteList } from "@/components/note-list";
 import { StatusActions } from "@/components/forms/status-actions";
 import { NoteForm } from "@/components/forms/note-form";
@@ -611,6 +612,7 @@ function AgreementCard({
   openCents: number;
   h: InvoiceHandlers;
 }) {
+  const confirm = useConfirm();
   const firstDueDate =
     ag.installmentRows[0]?.dueDate.slice(0, 10) ??
     new Date().toISOString().slice(0, 10);
@@ -653,7 +655,13 @@ function AgreementCard({
               </IconBtn>
             }
           />
-          <IconBtn label="Excluir acordo" onClick={() => h.onDeleteAgreement(ag.id)}>
+          <IconBtn
+            label="Excluir acordo"
+            onClick={async () => {
+              if (await confirm({ title: "Excluir acordo", description: "Excluir este acordo de pagamento? Esta ação não pode ser desfeita." }))
+                h.onDeleteAgreement(ag.id);
+            }}
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </IconBtn>
         </div>

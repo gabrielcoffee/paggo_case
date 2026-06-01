@@ -11,6 +11,7 @@ import type { EntitySelect } from "@/components/agent/chat-entity-list";
 import type { PanelTab } from "@/components/invoice-detail-panel";
 import { ToolTrace } from "@/components/agent/tool-trace";
 import type { TraceEntry } from "@/lib/agent/loop";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { getOrCreateChat, resetChat, getChatMessages } from "@/lib/queries/chats";
 import { getPlanStatuses } from "@/lib/actions/agent-plan";
 
@@ -38,6 +39,7 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const confirm = useConfirm();
 
   const scrollDown = useCallback(() => {
     requestAnimationFrame(() =>
@@ -83,6 +85,8 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
   // "Resetar chat": wipe the single conversation in place (keeps the same row).
   async function newChat() {
     if (creating || loading) return;
+    if (!(await confirm({ title: "Resetar chat", description: "Apagar toda a conversa atual? Esta ação não pode ser desfeita.", confirmLabel: "Resetar" })))
+      return;
     setCreating(true);
     setError(null);
     try {

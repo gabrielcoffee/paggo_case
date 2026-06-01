@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { getUser } from "@/lib/supabase/server";
 
 const sans = Hanken_Grotesk({
@@ -35,14 +36,16 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         <ThemeProvider>
-          {user ? (
-            <div className="flex min-h-screen">
-              <AppSidebar userEmail={user.email ?? ""} />
-              <main className="min-w-0 flex-1">{children}</main>
-            </div>
-          ) : (
-            children
-          )}
+          <ConfirmProvider>
+            {user ? (
+              <div className="flex min-h-screen">
+                <AppSidebar userEmail={user.email ?? ""} />
+                <main className="min-w-0 flex-1">{children}</main>
+              </div>
+            ) : (
+              children
+            )}
+          </ConfirmProvider>
           <Toaster richColors position="bottom-center" duration={3200} offset={24} />
         </ThemeProvider>
       </body>
