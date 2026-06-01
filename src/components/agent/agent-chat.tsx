@@ -8,12 +8,13 @@ import { Markdown } from "@/components/agent/markdown";
 import { PlanModal, type PlanData } from "@/components/agent/plan-modal";
 import { AgentChart } from "@/components/agent/agent-charts";
 import type { EntitySelect } from "@/components/agent/chat-entity-list";
+import type { PanelTab } from "@/components/invoice-detail-panel";
 import { ToolTrace } from "@/components/agent/tool-trace";
 import type { TraceEntry } from "@/lib/agent/loop";
 import { listChats, createChat, getChatMessages } from "@/lib/queries/chats";
 import { getPlanStatuses } from "@/lib/actions/agent-plan";
 
-type ChartItem = { type: string; data: unknown };
+type ChartItem = { type: string; data: unknown; tab?: string };
 type Msg = {
   role: "user" | "assistant";
   content: string;
@@ -300,7 +301,7 @@ function Bubble({
           {isUser ? (
             msg.content
           ) : msg.content ? (
-            <Markdown content={msg.content} />
+            <Markdown content={msg.content} onSelect={onSelect} />
           ) : streaming ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : (
@@ -308,7 +309,13 @@ function Bubble({
           )}
         </div>
         {msg.charts?.map((c, i) => (
-          <AgentChart key={i} type={c.type} data={c.data} onSelect={onSelect} />
+          <AgentChart
+            key={i}
+            type={c.type}
+            data={c.data}
+            tab={c.tab as PanelTab | undefined}
+            onSelect={onSelect}
+          />
         ))}
         {msg.plans?.map((p) => (
           <PlanModal key={p.id} plan={p} onStatus={onStatus} />

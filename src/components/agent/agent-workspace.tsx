@@ -9,8 +9,9 @@ import { usePanelWidth } from "@/lib/use-panel-width";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { prefetchCustomer } from "@/lib/customer-detail-cache";
 import { cn } from "@/lib/utils";
+import type { PanelTab } from "@/components/invoice-detail-panel";
 
-type Selection = { kind: "invoice" | "customer"; id: string } | null;
+type Selection = { kind: "invoice" | "customer"; id: string; tab?: PanelTab } | null;
 
 // Splits the agent screen: chat on the left (shrinks), a detail panel on the right
 // when the analyst clicks an invoice/customer row in a chat answer. The panel
@@ -38,7 +39,7 @@ export function AgentWorkspace({ today }: { today: string }) {
 
   return (
     <div className="flex h-screen">
-      <AgentChat onSelect={(kind, id) => open({ kind, id })} />
+      <AgentChat onSelect={open} />
       {sel && (
         <aside
           style={{ width, maxWidth: "100vw" }}
@@ -49,13 +50,20 @@ export function AgentWorkspace({ today }: { today: string }) {
         >
           <PanelResizeHandle onResize={(x) => setWidth(window.innerWidth - x)} />
           {sel.kind === "invoice" ? (
-            <InvoiceDetailPanel key={sel.id} id={sel.id} today={today} onClose={close} />
-          ) : (
-            <CustomerDetailPanel
-              key={sel.id}
+            <InvoiceDetailPanel
+              key={`${sel.id}:${sel.tab ?? "overview"}`}
               id={sel.id}
               today={today}
               onClose={close}
+              initialTab={sel.tab}
+            />
+          ) : (
+            <CustomerDetailPanel
+              key={`${sel.id}:${sel.tab ?? "overview"}`}
+              id={sel.id}
+              today={today}
+              onClose={close}
+              initialTab={sel.tab}
               onOpenInvoice={(invId) => open({ kind: "invoice", id: invId })}
             />
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { X, Users } from "lucide-react";
+import { X, Users, Eye, ReceiptText, MessageSquare, Clock, History } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip } from "@/components/status-chip";
@@ -75,12 +75,14 @@ export function CustomerDetailPanel({
   today,
   onClose,
   onOpenInvoice,
+  initialTab,
 }: {
   id: string;
   initialRow?: CustomerRow;
   today: string;
   onClose: () => void;
   onOpenInvoice: (invoiceId: string) => void;
+  initialTab?: string;
 }) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [, startLoad] = useTransition();
@@ -195,17 +197,25 @@ export function CustomerDetailPanel({
       </header>
 
       {view ? (
-        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+        <Tabs defaultValue={initialTab ?? "overview"} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="mx-5 mt-3 self-start">
-            <TabsTrigger value="overview">Visão</TabsTrigger>
-            <TabsTrigger value="invoices">
-              Faturas{view.invoiceCount ? ` (${view.invoiceCount})` : ""}
+            <TabsTrigger value="overview" className="inline-flex items-center gap-1">
+              <Eye className="h-3.5 w-3.5" /> Visão
             </TabsTrigger>
-            <TabsTrigger value="notes">
-              Notas{view.notes.length ? ` (${view.notes.length})` : ""}
+            <TabsTrigger value="invoices" className="inline-flex items-center gap-1">
+              <ReceiptText className="h-3.5 w-3.5" /> Faturas
+              {view.invoiceCount ? ` (${view.invoiceCount})` : ""}
             </TabsTrigger>
-            <TabsTrigger value="followups">Follow-ups</TabsTrigger>
-            <TabsTrigger value="audit">Audit</TabsTrigger>
+            <TabsTrigger value="notes" className="inline-flex items-center gap-1">
+              <MessageSquare className="h-3.5 w-3.5" /> Notas
+              {view.notes.length ? ` (${view.notes.length})` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="followups" className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" /> Follow-ups
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="inline-flex items-center gap-1">
+              <History className="h-3.5 w-3.5" /> Audit
+            </TabsTrigger>
           </TabsList>
 
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">

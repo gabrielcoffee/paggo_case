@@ -16,7 +16,7 @@ import { fetchDashboard } from "@/lib/queries/dashboard";
 import { planStepsSchema, describeStep } from "@/lib/agent/plan-steps";
 import { Prisma } from "@/generated/prisma/client";
 
-export type ChartPayload = { type: string; data: unknown };
+export type ChartPayload = { type: string; data: unknown; tab?: string };
 export type ToolOutcome = {
   content: string;
   isError?: boolean;
@@ -273,9 +273,9 @@ export async function runTool(
       case "listAgreements":
         return await listAgreements(input);
       case "listFollowUps":
-        return { content: await listFollowUps(input) };
+        return await listFollowUps(input);
       case "listNotes":
-        return { content: await listNotes(input) };
+        return await listNotes(input);
       case "getCustomer":
         return await getCustomer(input);
       case "getCustomerInvoices":
@@ -863,11 +863,11 @@ async function listAgreements(input: Record<string, unknown>): Promise<ToolOutco
   }));
   return {
     content: JSON.stringify({ total: acordos.length, acordos }),
-    chart: { type: "invoice_list", data: invoices },
+    chart: { type: "invoice_list", data: invoices, tab: "agreement" },
   };
 }
 
-async function listFollowUps(input: Record<string, unknown>): Promise<string> {
+async function listFollowUps(input: Record<string, unknown>): Promise<ToolOutcome> {
   const today = appToday();
   const period = String(input.period ?? "all");
   const where: Prisma.FollowUpWhereInput = {};
@@ -893,10 +893,24 @@ async function listFollowUps(input: Record<string, unknown>): Promise<string> {
     status: f.status,
     descricao: f.body,
   }));
-  return JSON.stringify({ total: followups.length, periodo: period, followups });
+  return {
+    content: JSON.stringify({ total: followups.length, periodo: period, followups }),
+    chart: {
+      type: "followups_list",
+      data: followups.map((f) => ({
+        id: f.id,
+        entityType: f.tipo,
+        entityId: f.ref,
+        canal: f.canal,
+        vencimento: f.vencimento,
+        status: f.status,
+        descricao: f.descricao,
+      })),
+    },
+  };
 }
 
-async function listNotes(input: Record<string, unknown>): Promise<string> {
+async function listNotes(input: Record<string, unknown>): Promise<ToolOutcome> {
   const today = appToday();
   const period = String(input.period ?? "all");
   const range = periodRange(period, today);
@@ -916,7 +930,20 @@ async function listNotes(input: Record<string, unknown>): Promise<string> {
     texto: n.body,
     criadoEm: n.createdAt.toISOString(),
   }));
-  return JSON.stringify({ total: notas.length, periodo: period, notas });
+  return {
+    content: JSON.stringify({ total: notas.length, periodo: period, notas }),
+    chart: {
+      type: "notes_list",
+      data: notas.map((n) => ({
+        id: n.id,
+        entityType: n.tipo,
+        entityId: n.ref,
+        autor: n.autor,
+        texto: n.texto,
+        criadoEm: n.criadoEm,
+      })),
+    },
+  };
 }
 
 const CHART_LABELS: Record<string, string> = {

@@ -2,16 +2,16 @@
 
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { EntitySelect } from "@/components/agent/chat-entity-list";
 
-// Turn bare invoice IDs into links to the detail page (new tab so the chat
-// isn't lost). Skips IDs already inside a markdown link.
+// Turn bare invoice IDs into links. Skips IDs already inside a markdown link.
 function linkifyInvoiceIds(md: string): string {
   return md.replace(/(\]\()?\b(INV-\d+)\b/g, (m, inLink, id) =>
     inLink ? m : `[${id}](/invoices/${id})`,
   );
 }
 
-const components: Components = {
+const staticComponents: Components = {
   table: ({ children }) => (
     <div className="my-2 overflow-x-auto">
       <table className="w-full border-collapse text-xs">{children}</table>
@@ -23,16 +23,6 @@ const components: Components = {
   ),
   td: ({ children }) => (
     <td className="border border-border px-2 py-1 tabular-nums">{children}</td>
-  ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-medium text-primary underline underline-offset-2"
-    >
-      {children}
-    </a>
   ),
   ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-5">{children}</ul>,
   ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-5">{children}</ol>,
@@ -47,7 +37,41 @@ const components: Components = {
   hr: () => <hr className="my-2 border-border" />,
 };
 
-export function Markdown({ content }: { content: string }) {
+const linkCls = "font-medium text-primary underline underline-offset-2";
+
+export function Markdown({
+  content,
+  onSelect,
+}: {
+  content: string;
+  onSelect?: EntitySelect;
+}) {
+  // An invoice link opens the side panel via onSelect (when available, i.e. in the
+  // agent workspace). Elsewhere it falls back to navigating to the detail page.
+  const components: Components = {
+    ...staticComponents,
+    a: ({ href, children }) => {
+      const m = href?.match(/^\/invoices\/(INV-\d+)/);
+      if (m && onSelect) {
+        const id = m[1];
+        return (
+          <button
+            type="button"
+            onClick={() => onSelect({ kind: "invoice", id, tab: "overview" })}
+            className={linkCls}
+          >
+            {children}
+          </button>
+        );
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={linkCls}>
+          {children}
+        </a>
+      );
+    },
+  };
+
   return (
     <div className="text-sm leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

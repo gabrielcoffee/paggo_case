@@ -5,6 +5,7 @@ import { ArTrendLine } from "@/components/charts/ar-trend-line";
 import { TierChart } from "@/components/charts/tier-chart";
 import { TopRiskChart } from "@/components/charts/top-risk-chart";
 import { ChatEntityList, type EntitySelect } from "@/components/agent/chat-entity-list";
+import type { PanelTab } from "@/components/invoice-detail-panel";
 import type { AgingBucket } from "@/lib/aging";
 
 const TITLES: Record<string, string> = {
@@ -14,15 +15,21 @@ const TITLES: Record<string, string> = {
   top_risk: "Top risco",
   invoice_list: "Faturas",
   customer_list: "Clientes",
+  notes_list: "Notas",
+  followups_list: "Follow-ups",
 };
+
+const LIST_TYPES = new Set(["invoice_list", "customer_list", "notes_list", "followups_list"]);
 
 export function AgentChart({
   type,
   data,
+  tab,
   onSelect,
 }: {
   type: string;
   data: unknown;
+  tab?: PanelTab;
   onSelect?: EntitySelect;
 }) {
   let chart: React.ReactNode = null;
@@ -35,12 +42,16 @@ export function AgentChart({
   else if (type === "top_risk")
     chart = <TopRiskChart data={data as { label: string; risco: number; open: number }[]} />;
   else if (type === "invoice_list")
-    chart = <ChatEntityList kind="invoice" data={data} onSelect={onSelect} />;
+    chart = <ChatEntityList kind="invoice" data={data} tab={tab} onSelect={onSelect} />;
   else if (type === "customer_list")
-    chart = <ChatEntityList kind="customer" data={data} onSelect={onSelect} />;
+    chart = <ChatEntityList kind="customer" data={data} tab={tab} onSelect={onSelect} />;
+  else if (type === "notes_list")
+    chart = <ChatEntityList kind="note" data={data} onSelect={onSelect} />;
+  else if (type === "followups_list")
+    chart = <ChatEntityList kind="followup" data={data} onSelect={onSelect} />;
 
   if (!chart) return null;
-  const flush = type === "invoice_list" || type === "customer_list";
+  const flush = LIST_TYPES.has(type);
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <p className="px-3 pt-3 text-xs font-medium text-muted-foreground">{TITLES[type] ?? type}</p>

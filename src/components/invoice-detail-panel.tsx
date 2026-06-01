@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X, Pencil, Trash2, ReceiptText } from "lucide-react";
+import { X, Pencil, Trash2, ReceiptText, Eye, MessageSquare, Clock, Handshake, History } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
@@ -44,6 +44,8 @@ const CHANNEL_LABELS: Record<string, string> = {
   email: "E-mail",
   whatsapp: "WhatsApp",
 };
+
+export type PanelTab = "overview" | "notes" | "followups" | "agreement" | "audit";
 
 const tmpId = () => `tmp-${crypto.randomUUID()}`;
 
@@ -110,12 +112,14 @@ export function InvoiceDetailPanel({
   today,
   onClose,
   onInvoiceChange,
+  initialTab,
 }: {
   id: string;
   initialRow?: InvoiceRow;
   today: string;
   onClose: () => void;
   onInvoiceChange?: (id: string, patch: Partial<InvoiceRow>) => () => void;
+  initialTab?: PanelTab;
 }) {
   const [detail, setDetail] = useState<InvoiceDetail | null>(
     initialRow ? stubFromRow(initialRow) : null,
@@ -407,21 +411,31 @@ export function InvoiceDetailPanel({
       </header>
 
       {view ? (
-        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+        <Tabs defaultValue={initialTab ?? "overview"} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="mx-5 mt-3 self-start">
-            <TabsTrigger value="overview">Visão</TabsTrigger>
-            <TabsTrigger value="notes">
-              Notas{view.notes.length ? ` (${view.notes.length})` : ""}
+            <TabsTrigger value="overview" className="inline-flex items-center gap-1">
+              <Eye className="h-3.5 w-3.5" /> Visão
             </TabsTrigger>
-            <TabsTrigger value="audit">
-              Audit{view.auditEvents.length ? ` (${view.auditEvents.length})` : ""}
+            <TabsTrigger value="notes" className="inline-flex items-center gap-1">
+              <MessageSquare className="h-3.5 w-3.5" /> Notas
+              {view.notes.length ? ` (${view.notes.length})` : ""}
             </TabsTrigger>
-            <TabsTrigger value="agreement">Acordo</TabsTrigger>
+            <TabsTrigger value="followups" className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" /> Follow-ups
+              {view.followUps.length ? ` (${view.followUps.length})` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="agreement" className="inline-flex items-center gap-1">
+              <Handshake className="h-3.5 w-3.5" /> Acordo
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="inline-flex items-center gap-1">
+              <History className="h-3.5 w-3.5" /> Audit
+              {view.auditEvents.length ? ` (${view.auditEvents.length})` : ""}
+            </TabsTrigger>
           </TabsList>
 
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
             <TabsContent value="overview">
-              <Overview detail={view} today={today} extrasLoading={extrasLoading} h={h} />
+              <Overview detail={view} today={today} h={h} />
             </TabsContent>
             <TabsContent value="notes">
               <div className="space-y-4">
@@ -432,6 +446,9 @@ export function InvoiceDetailPanel({
                   <NoteList notes={view.notes} onUpdate={h.onUpdateNote} onDelete={h.onDeleteNote} />
                 )}
               </div>
+            </TabsContent>
+            <TabsContent value="followups">
+              <FollowUps detail={view} extrasLoading={extrasLoading} h={h} />
             </TabsContent>
             <TabsContent value="audit">
               {extrasLoading ? (
@@ -457,12 +474,10 @@ export function InvoiceDetailPanel({
 function Overview({
   detail,
   today,
-  extrasLoading,
   h,
 }: {
   detail: InvoiceDetail;
   today: string;
-  extrasLoading: boolean;
   h: InvoiceHandlers;
 }) {
   const od = daysOverdue(new Date(detail.dueDate), new Date(today));
@@ -516,33 +531,42 @@ function Overview({
           <StatusActions current={detail.status} onSetStatus={h.onSetStatus} />
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section>
-        <Label>Follow-ups</Label>
-        <ul className="mb-3 mt-2 space-y-2">
-          {extrasLoading ? (
-            <li className="text-sm text-muted-foreground">Carregando…</li>
-          ) : (
-            <>
-              {detail.followUps.map((f) => (
-                <li
-                  key={f.id}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-sm"
-                >
-                  <span>
-                    {CHANNEL_LABELS[f.channel] ?? f.channel} · {dateTime(f.dueAt)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{f.status}</span>
-                </li>
-              ))}
-              {detail.followUps.length === 0 && (
-                <li className="text-sm text-muted-foreground">Nenhum follow-up.</li>
-              )}
-            </>
+function FollowUps({
+  detail,
+  extrasLoading,
+  h,
+}: {
+  detail: InvoiceDetail;
+  extrasLoading: boolean;
+  h: InvoiceHandlers;
+}) {
+  return (
+    <div className="space-y-4">
+      <FollowUpForm onAdd={h.onAddFollowUp} />
+      {extrasLoading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
+        <ul className="space-y-2">
+          {detail.followUps.map((f) => (
+            <li
+              key={f.id}
+              className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-sm"
+            >
+              <span>
+                {CHANNEL_LABELS[f.channel] ?? f.channel} · {dateTime(f.dueAt)}
+              </span>
+              <span className="text-xs text-muted-foreground">{f.status}</span>
+            </li>
+          ))}
+          {detail.followUps.length === 0 && (
+            <li className="text-sm text-muted-foreground">Nenhum follow-up.</li>
           )}
         </ul>
-        <FollowUpForm onAdd={h.onAddFollowUp} />
-      </section>
+      )}
     </div>
   );
 }
