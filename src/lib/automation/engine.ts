@@ -194,6 +194,12 @@ async function applyCustomerEffect(
   return false; // status not valid for customers
 }
 
+// Live preview for the form: how many entities match a condition right now.
+export async function countMatches(target: string, condition: unknown): Promise<number> {
+  if (target === "invoice") return (await resolveInvoiceMatches(invoiceConditionSchema.parse(condition ?? {}))).length;
+  return (await resolveCustomerMatches(customerConditionSchema.parse(condition ?? {}))).length;
+}
+
 export type RunResult = { ok: boolean; matched: number; acted: number; summary: string };
 
 export async function runAutomation(

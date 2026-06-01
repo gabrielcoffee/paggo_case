@@ -12,7 +12,7 @@ import {
   type Target,
 } from "@/lib/automation/automation-spec";
 import { computeNextRun } from "@/lib/automation/schedule";
-import { runAutomation } from "@/lib/automation/engine";
+import { runAutomation, countMatches } from "@/lib/automation/engine";
 import type {
   AutomationSummary,
   AutomationDetail,
@@ -139,6 +139,15 @@ export async function setAutomationEnabled(id: string, enabled: boolean): Promis
   await prisma.automationRule.update({ where: { id }, data: { enabled } });
   revalidatePath("/agent");
   return { ok: true };
+}
+
+// Live count for the form preview ("N registros correspondem agora").
+export async function previewMatches(target: string, condition: unknown): Promise<number> {
+  try {
+    return await countMatches(target, condition);
+  } catch {
+    return 0;
+  }
 }
 
 export async function runAutomationNow(id: string) {

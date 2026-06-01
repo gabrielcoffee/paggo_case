@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { automationSpecSchema, describeAutomation } from "@/lib/automation/automation-spec";
 
 // Typed steps the agent proposes and the analyst confirms. Prisma-free so it can
 // be shared by the tool layer, the confirm executor, the UI, and tests.
@@ -36,6 +37,10 @@ export const planStepSchema = z.discriminatedUnion("kind", [
     firstDueDate: z.string().min(1),
     intervalDays: z.number().int().min(1).max(180).optional(),
   }),
+  z.object({
+    kind: z.literal("automation"),
+    spec: automationSpecSchema,
+  }),
 ]);
 
 export type PlanStep = z.infer<typeof planStepSchema>;
@@ -55,5 +60,7 @@ export function describeStep(s: PlanStep): string {
       return `${s.invoiceId}: baixar (write-off)`;
     case "agreement":
       return `${s.invoiceId}: acordo ${s.installments}x${s.discountPct ? ` -${s.discountPct}%` : ""}`;
+    case "automation":
+      return `Automação "${s.spec.name}": ${describeAutomation(s.spec)}`;
   }
 }

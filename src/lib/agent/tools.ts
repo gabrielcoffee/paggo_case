@@ -14,6 +14,7 @@ import { RISK_RULES } from "@/lib/risk-rules";
 import { fetchInvoiceDetail } from "@/lib/actions/invoice-detail";
 import { fetchDashboard } from "@/lib/queries/dashboard";
 import { planStepsSchema, describeStep } from "@/lib/agent/plan-steps";
+import { automationSpecSchema, describeAutomation } from "@/lib/automation/automation-spec";
 import { Prisma } from "@/generated/prisma/client";
 
 export type ChartPayload = { type: string; data: unknown; tab?: string };
@@ -249,6 +250,42 @@ export const TOOL_DEFS = [
       required: ["summary", "steps"],
     },
   },
+  {
+    name: "listAutomations",
+    description: "Lista as automações agendadas existentes (nome, estado, frequência, próxima execução).",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "proposeAutomation",
+    description:
+      "Propõe a CRIAÇÃO de uma automação agendada para o analista CONFIRMAR. Use quando o usuário quer automatizar algo recorrente: escrever notas/follow-ups, mudar status, ou enviar relatório por email periodicamente. NÃO cria direto — gera um plano pendente que o analista confirma.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Nome curto da automação" },
+        target: {
+          type: "string",
+          enum: ["invoice", "customer"],
+          description: "Sobre o que age. Use 'invoice' também quando o efeito for report_email.",
+        },
+        condition: {
+          type: "object",
+          description:
+            "Filtros do gatilho. invoice: {scope:'unpaid'|'overdue'|'all', segment:[], status:[], aging:['0-30'|'31-60'|'61-90'|'90+'], minRisk, minOpen}. customer: {segment:[], minOpenAr, minOverdueAr, minOverdueCount}. Ignorado para report_email.",
+        },
+        effect: {
+          type: "object",
+          description:
+            "Ação. note:{kind:'note',bodyTemplate} | followup:{kind:'followup',channel:'phone'|'email'|'whatsapp',dueOffsetDays,bodyTemplate} | status:{kind:'status',to:'in_negotiation'|'disputed'|'written_off'} (só invoice) | report_email:{kind:'report_email',reportConfig:{preset:'maior_risco'|'maior_exposicao'|'vencidas_criticas',count:5|10|15}}. Templates aceitam {cliente} {fatura} {valor_aberto} {dias_atraso} {segmento} {risco}.",
+        },
+        schedule: {
+          type: "object",
+          description: "{frequency:'daily'|'weekly'|'monthly', startDate:'YYYY-MM-DD', timeOfDay:'HH:mm' (padrão 10:00)}",
+        },
+      },
+      required: ["name", "target", "condition", "effect", "schedule"],
+    },
+  },
 ] as const;
 
 // --- dispatch -------------------------------------------------------------
@@ -306,6 +343,10 @@ export async function runTool(
         return await showChart(input);
       case "proposeActions":
         return await proposeActions(input, sessionId);
+      case "listAutomations":
+        return await listAutomationsTool();
+      case "proposeAutomation":
+        return await proposeAutomation(input, sessionId);
       default:
         return { content: `Ferramenta desconhecida: ${name}`, isError: true };
     }
@@ -1009,4 +1050,43 @@ async function proposeActions(
       .map((s) => `- ${describeStep(s)}`)
       .join("\n")}`,
   };
+}
+
+async function proposeAutomation(
+  input: Record<string, unknown>,
+  sessionId: string,
+): Promise<ToolOutcome> {
+  const parsed = automationSpecSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      content: `Spec da automação inválida: ${parsed.error.issues[0]?.message ?? "formato incorreto"}. Revise e tente novamente.`,
+      isError: true,
+    };
+  }
+  const spec = parsed.data;
+  const plan = await prisma.agentPlan.create({
+    data: {
+      sessionId,
+      summary: `Criar automação: ${spec.name}`,
+      steps: [{ kind: "automation", spec }] as unknown as Prisma.InputJsonValue,
+      status: "pending",
+    },
+  });
+  return {
+    planId: plan.id,
+    content: `Plano ${plan.id} criado: automação "${spec.name}" — ${describeAutomation(spec)}. Aguardando confirmação do analista.`,
+  };
+}
+
+async function listAutomationsTool(): Promise<ToolOutcome> {
+  const rules = await prisma.automationRule.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
+  if (!rules.length) return { content: "Nenhuma automação cadastrada." };
+  const lines = rules.map(
+    (r) =>
+      `- ${r.name} [${r.enabled ? "ativa" : "pausada"}] · ${r.frequency} às ${r.timeOfDay} · próxima ${r.nextRunAt
+        .toISOString()
+        .slice(0, 16)
+        .replace("T", " ")}`,
+  );
+  return { content: `Automações (${rules.length}):\n${lines.join("\n")}` };
 }

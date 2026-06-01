@@ -171,7 +171,7 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
   }
 
   return (
-    <div className="flex h-screen min-w-0 flex-1 flex-col">
+    <div className="flex h-full min-w-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5">
         <Bot className="h-4 w-4 text-primary" />
         <div>

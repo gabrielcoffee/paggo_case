@@ -8,7 +8,10 @@ import { recordAudit } from "@/lib/audit";
 import { recomputeInvoiceRisk } from "@/lib/risk-recompute";
 import { buildSchedule } from "@/lib/agreement";
 import { appToday } from "@/lib/risk";
+import { getUser } from "@/lib/supabase/server";
 import { planStepsSchema, type PlanStep } from "@/lib/agent/plan-steps";
+import { parseCondition } from "@/lib/automation/automation-spec";
+import { computeNextRun } from "@/lib/automation/schedule";
 import type { ActionResult } from "@/lib/actions/invoices";
 
 const AGENT = { origin: "agent" as const, actor: "agent" };
@@ -16,6 +19,40 @@ const AGENT = { origin: "agent" as const, actor: "agent" };
 // Executes one proposed step inside the caller's transaction, emitting an
 // agent-attributed audit event that references the plan.
 async function execStep(tx: Prisma.TransactionClient, step: PlanStep, planId: string) {
+  // Automation creation has no invoice target — handle it before the invoice
+  // audit closure below (which assumes step.invoiceId).
+  if (step.kind === "automation") {
+    const spec = step.spec;
+    const condition = parseCondition(spec.target, spec.condition);
+    let effect = spec.effect;
+    if (effect.kind === "report_email" && !effect.to) {
+      const u = await getUser();
+      effect = { ...effect, to: u?.email };
+    }
+    const rule = await tx.automationRule.create({
+      data: {
+        name: spec.name,
+        target: spec.target,
+        condition: condition as object,
+        effect: effect as object,
+        frequency: spec.schedule.frequency,
+        startDate: new Date(spec.schedule.startDate),
+        timeOfDay: spec.schedule.timeOfDay,
+        nextRunAt: computeNextRun(spec.schedule, new Date()),
+        createdBy: AGENT.actor,
+      },
+    });
+    await recordAudit(tx, {
+      entityType: "automation",
+      entityId: rule.id,
+      action: "automation_created",
+      origin: AGENT.origin,
+      actor: AGENT.actor,
+      payload: { planId, name: spec.name },
+    });
+    return;
+  }
+
   const audit = (action: string, payload: Prisma.InputJsonValue) =>
     recordAudit(tx, {
       entityType: "invoice",
@@ -157,6 +194,7 @@ export async function confirmPlan(
   });
   revalidatePath("/invoices");
   revalidatePath("/");
+  revalidatePath("/agent");
   return { ok: true };
 }
 
