@@ -75,8 +75,14 @@ async function main() {
   console.log(`Unique customers: ${customers.size}`);
 
   // Idempotent full refresh: clear dependents then base tables.
-  // Children first to respect FKs.
+  // Children first to respect FKs. Seeding is a full reset to the CSV baseline:
+  // it wipes every derived/usage table (notes, follow-ups, agreements, audit,
+  // agent plans, automations, chats) and recreates customers + invoices.
   console.log("Clearing existing data...");
+  await prisma.automationRun.deleteMany();
+  await prisma.automationRule.deleteMany();
+  await prisma.chatMessage.deleteMany();
+  await prisma.chat.deleteMany();
   await prisma.agreementInstallment.deleteMany();
   await prisma.paymentAgreement.deleteMany();
   await prisma.note.deleteMany();
