@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Pencil, Trash2, ReceiptText, Eye, MessageSquare, Clock, Handshake, History } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/risk-badge";
@@ -126,6 +127,7 @@ export function InvoiceDetailPanel({
   );
   const [loaded, setLoaded] = useState(false);
   const { run } = useMutation();
+  const router = useRouter();
 
   // Mounted fresh per invoice id (InvoiceSheet keys on row.id), so a single
   // background fetch fills the mutable lists. `loaded` gates the list spinners.
@@ -150,7 +152,11 @@ export function InvoiceDetailPanel({
     getDetail(id).then((d) => {
       if (d) setDetail(d);
     });
-  }, [id]);
+    // Re-run the current route's server components so aggregated lists behind the
+    // Sheet (notes/follow-ups/agreements pages, invoices/customers tables) reflect
+    // the write without a manual refresh. Client state (open Sheet) is preserved.
+    router.refresh();
+  }, [id, router]);
 
   // Apply an optimistic patch to the local detail, returning a rollback. Defined
   // inline each render so it closes over the current `detail` for the snapshot.

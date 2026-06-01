@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { X, Users, Eye, ReceiptText, MessageSquare, Clock, History } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/risk-badge";
@@ -87,6 +88,7 @@ export function CustomerDetailPanel({
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [, startLoad] = useTransition();
   const { run } = useMutation();
+  const router = useRouter();
 
   const load = useCallback((custId: string) => {
     startLoad(async () => {
@@ -105,7 +107,10 @@ export function CustomerDetailPanel({
     getCustomer(id).then((d) => {
       if (d) setDetail(d);
     });
-  }, [id]);
+    // Refresh the current route's server components so aggregated lists behind the
+    // Sheet (notes/follow-ups/agreements pages) update without a manual refresh.
+    router.refresh();
+  }, [id, router]);
 
   const applyPatch = (updater: (d: CustomerDetail) => CustomerDetail) => {
     const snapshot = detail;

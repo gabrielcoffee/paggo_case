@@ -21,13 +21,17 @@ function fail(error: string): ActionResult {
   return { ok: false, error };
 }
 
-// Refresh the list + dashboard in the background. Only writes that change a
-// portfolio-visible field (status, payment, agreement) call this — notes and
-// follow-ups don't move any aggregate, so they skip the heavy re-render. The UI
-// already updated optimistically; this just keeps other views eventually consistent.
+// Mark the portfolio-wide views stale so they re-render with fresh data. Every
+// write calls this: the detail panel already updates optimistically, but the
+// aggregated list pages (notes/follow-ups/agreements) and the dashboard read
+// straight from the DB and must reflect the change without a manual refresh.
 function revalidate() {
-  revalidatePath("/invoices");
   revalidatePath("/");
+  revalidatePath("/invoices");
+  revalidatePath("/customers");
+  revalidatePath("/notes");
+  revalidatePath("/followups");
+  revalidatePath("/agreements");
 }
 
 const STATUSES = [
@@ -129,6 +133,7 @@ export async function addNote(
     });
   });
 
+  revalidate();
   return { ok: true };
 }
 
@@ -177,6 +182,7 @@ export async function scheduleFollowUp(
     });
   });
 
+  revalidate();
   return { ok: true };
 }
 
@@ -297,6 +303,7 @@ export async function updateNote(
     });
   });
 
+  revalidate();
   return { ok: true };
 }
 
@@ -320,6 +327,7 @@ export async function deleteNote(
     });
   });
 
+  revalidate();
   return { ok: true };
 }
 
