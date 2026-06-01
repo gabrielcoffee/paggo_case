@@ -39,6 +39,47 @@ export async function getOrCreateChat(): Promise<ChatSummary> {
   return summary(c);
 }
 
+// Loads the single chat + its messages + reconciled plan statuses in ONE server
+// round-trip (instead of getOrCreateChat → getChatMessages → getPlanStatuses in
+// series). Cuts the chat's initial latency to a single call.
+export async function loadChat(): Promise<{
+  chat: ChatSummary;
+  messages: StoredMessage[];
+  planStatuses: Record<string, string>;
+}> {
+  const userId = await uid();
+  const existing = await prisma.chat.findFirst({ where: { userId }, orderBy: { updatedAt: "desc" } });
+  const chat = existing ?? (await prisma.chat.create({ data: { userId, title: "Chat" } }));
+
+  const msgs = await prisma.chatMessage.findMany({
+    where: { chatId: chat.id },
+    orderBy: { createdAt: "asc" },
+  });
+  const messages: StoredMessage[] = msgs.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    data: m.data,
+    createdAt: m.createdAt.toISOString(),
+  }));
+
+  const planIds: string[] = [];
+  for (const m of messages) {
+    const d = (m.data ?? {}) as { plans?: { id: string }[] };
+    if (d.plans) for (const p of d.plans) planIds.push(p.id);
+  }
+  let planStatuses: Record<string, string> = {};
+  if (planIds.length) {
+    const rows = await prisma.agentPlan.findMany({
+      where: { id: { in: planIds } },
+      select: { id: true, status: true },
+    });
+    planStatuses = Object.fromEntries(rows.map((r) => [r.id, r.status]));
+  }
+
+  return { chat: summary(chat), messages, planStatuses };
+}
+
 // "Resetar chat": wipe the single conversation in place (messages + any agent
 // plans tied to it) and keep the same row so the user always has exactly one.
 export async function resetChat(): Promise<ChatSummary> {

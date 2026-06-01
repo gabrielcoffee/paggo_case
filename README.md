@@ -145,6 +145,9 @@ e ao motor de execução; as combinações são dados, não código por combina�
   e apagaria a diferenciação que move as regras.
 - **Lista filtra no cliente.** O conjunto de trabalho carrega uma vez por escopo; filtros, ordenação e
   busca rodam em memória — resposta instantânea, zero round-trip por toque.
+- **UI otimista + menos round-trips.** Escritas (notas, follow-ups, reset de chat, criação de automação)
+  refletem na tela na hora e persistem em background. O auth no layout lê a sessão do cookie (sem ida à
+  rede; o proxy já validou), o chat carrega em uma única chamada, e o Recharts é lazy-loaded.
 - **Um spec para automações.** Uma tool, um formulário, um motor — o spec discriminado é a fonte única
   de verdade, então adicionar uma combinação é dado, não código.
 - **PDF isomórfico.** Um só `ReportDocument` serve o navegador (download/impressão) e o servidor (anexo

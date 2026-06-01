@@ -5,7 +5,7 @@ import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
-import { getUser } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/server";
 
 const sans = Hanken_Grotesk({
   variable: "--font-sans",
@@ -27,7 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getUser();
+  const user = await getSessionUser();
   return (
     <html
       lang="pt-BR"

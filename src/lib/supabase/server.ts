@@ -33,3 +33,15 @@ export async function getUser() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+// Reads the user from the session cookie WITHOUT a network round-trip to Supabase
+// Auth. Safe for UI/gating in the layout because the proxy already validated +
+// refreshed the session (getUser) on the same request. Use getUser() where a
+// freshly server-verified user is required (ownership checks in actions).
+export async function getSessionUser() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user ?? null;
+}

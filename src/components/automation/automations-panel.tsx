@@ -8,9 +8,11 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { dateTime } from "@/lib/format";
-import { describeAutomation, FREQ_LABELS } from "@/lib/automation/automation-spec";
+import { describeAutomation, FREQ_LABELS, automationSpecSchema } from "@/lib/automation/automation-spec";
+import { computeNextRun } from "@/lib/automation/schedule";
 import {
   listAutomations,
+  createAutomation,
   deleteAutomation,
   setAutomationEnabled,
   runAutomationNow,
@@ -45,6 +47,43 @@ export function AutomationsPanel({ today }: { today: string }) {
       alive = false;
     };
   }, []);
+
+  // Optimistic create: show the rule instantly, persist in the background, then
+  // reconcile (real id + server-filled fields) via load().
+  function create(spec: unknown) {
+    const parsed = automationSpecSchema.safeParse(spec);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Dados inválidos.");
+      return;
+    }
+    const s = parsed.data;
+    const tmpId = `tmp-${crypto.randomUUID()}`;
+    const temp: AutomationSummary = {
+      id: tmpId,
+      name: s.name,
+      enabled: true,
+      target: s.target,
+      condition: s.condition,
+      effect: s.effect,
+      frequency: s.schedule.frequency,
+      startDate: s.schedule.startDate,
+      timeOfDay: s.schedule.timeOfDay,
+      nextRunAt: computeNextRun(s.schedule, new Date()).toISOString(),
+      lastRunAt: null,
+      createdAt: new Date().toISOString(),
+      lastRun: null,
+    };
+    setRules((r) => [temp, ...r]);
+    toast.success("Automação criada");
+    createAutomation(spec).then((res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        setRules((r) => r.filter((x) => x.id !== tmpId));
+        return;
+      }
+      load();
+    });
+  }
 
   async function run(id: string) {
     setBusy(id);
@@ -186,7 +225,7 @@ export function AutomationsPanel({ today }: { today: string }) {
         )}
       </div>
 
-      <AutomationForm open={formOpen} onOpenChange={setFormOpen} today={today} onCreated={load} />
+      <AutomationForm open={formOpen} onOpenChange={setFormOpen} today={today} onCreate={create} />
     </div>
   );
 }

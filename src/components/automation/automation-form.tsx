@@ -6,14 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NumberInput } from "@/components/ui/number-input";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SEGMENT_LABELS, STATUS_LABELS } from "@/lib/invoice-status";
 import type { InvoiceStatus } from "@/generated/prisma/enums";
 import { brlCompact } from "@/lib/format";
 import { CHANNELS, STATUS_TARGETS, templateVars } from "@/lib/automation/automation-spec";
 import { PRESET_LABELS, REPORT_PRESETS, type ReportPreset } from "@/lib/report/report-config";
-import { createAutomation, previewMatches } from "@/lib/actions/automations";
+import { previewMatches } from "@/lib/actions/automations";
 
 type Kind = "invoice" | "customer" | "report";
 type EffectKind = "note" | "followup" | "status" | "report_email";
@@ -102,12 +101,12 @@ export function AutomationForm({
   open,
   onOpenChange,
   today,
-  onCreated,
+  onCreate,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   today: string;
-  onCreated: () => void;
+  onCreate: (spec: unknown) => void;
 }) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<Kind>("invoice");
@@ -137,7 +136,6 @@ export function AutomationForm({
 
   const [preview, setPreview] = useState<number | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const target = kind === "customer" ? "customer" : "invoice";
@@ -197,27 +195,18 @@ export function AutomationForm({
   const needsBody = effectKind === "note" || effectKind === "followup";
   const canSave = !!name.trim() && !!startDate && (!needsBody || !!bodyTemplate.trim());
 
-  async function submit() {
-    setSaving(true);
-    try {
-      const r = await createAutomation({
-        name,
-        target,
-        condition: condition(),
-        effect: buildEffect(),
-        schedule: { frequency, startDate, timeOfDay },
-      });
-      if (!r.ok) {
-        toast.error(r.error);
-        return;
-      }
-      toast.success("Automação criada");
-      onOpenChange(false);
-      reset();
-      onCreated();
-    } finally {
-      setSaving(false);
-    }
+  // Hand the spec to the panel, which inserts it optimistically and persists in
+  // the background; close + reset immediately.
+  function submit() {
+    onCreate({
+      name,
+      target,
+      condition: condition(),
+      effect: buildEffect(),
+      schedule: { frequency, startDate, timeOfDay },
+    });
+    onOpenChange(false);
+    reset();
   }
 
   function reset() {
@@ -476,7 +465,7 @@ export function AutomationForm({
         </div>
 
         <div className="mt-2 flex justify-end">
-          <Button onClick={submit} loading={saving} disabled={saving || !canSave}>
+          <Button onClick={submit} disabled={!canSave}>
             Criar automação
           </Button>
         </div>

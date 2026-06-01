@@ -1,19 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Loader2, Send, Bot, User, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/agent/markdown";
 import { PlanModal, type PlanData } from "@/components/agent/plan-modal";
-import { AgentChart } from "@/components/agent/agent-charts";
 import type { EntitySelect } from "@/components/agent/chat-entity-list";
 import type { PanelTab } from "@/components/invoice-detail-panel";
 import { ToolTrace } from "@/components/agent/tool-trace";
 import type { TraceEntry } from "@/lib/agent/loop";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { getOrCreateChat, resetChat, getChatMessages } from "@/lib/queries/chats";
-import { getPlanStatuses } from "@/lib/actions/agent-plan";
+import { getOrCreateChat, resetChat, loadChat } from "@/lib/queries/chats";
+
+// Recharts is heavy and charts are rare in a conversation — load it on demand so
+// the chat shell paints without it.
+const AgentChart = dynamic(
+  () => import("@/components/agent/agent-charts").then((m) => m.AgentChart),
+  { ssr: false, loading: () => <div className="h-48 animate-pulse rounded-lg bg-muted/40" /> },
+);
 
 type ChartItem = { type: string; data: unknown; tab?: string };
 type Msg = {
@@ -47,55 +53,43 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
     );
   }, []);
 
-  const loadMessages = useCallback(async (chatId: string) => {
-    const stored = await getChatMessages(chatId);
-    const msgs: Msg[] = stored.map((m) => {
-      const d = (m.data ?? {}) as { plans?: PlanData[]; charts?: ChartItem[]; trace?: TraceEntry[] };
-      return {
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        plans: d.plans,
-        charts: d.charts,
-        trace: d.trace,
-      };
-    });
-    // Reconcile plan statuses (a saved message holds the status at save time).
-    const planIds = msgs.flatMap((m) => m.plans?.map((p) => p.id) ?? []);
-    if (planIds.length) {
-      const statuses = await getPlanStatuses(planIds);
-      for (const m of msgs)
-        m.plans = m.plans?.map((p) => ({ ...p, status: statuses[p.id] ?? p.status }));
-    }
-    setMessages(msgs);
-  }, []);
-
-  // Single, persistent conversation per user: load (or create) the one chat.
+  // Single, persistent conversation per user, loaded in one round-trip
+  // (chat + messages + reconciled plan statuses).
   useEffect(() => {
     (async () => {
       try {
-        const chat = await getOrCreateChat();
+        const { chat, messages: stored, planStatuses } = await loadChat();
         setActiveId(chat.id);
-        await loadMessages(chat.id);
+        const msgs: Msg[] = stored.map((m) => {
+          const d = (m.data ?? {}) as { plans?: PlanData[]; charts?: ChartItem[]; trace?: TraceEntry[] };
+          return {
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            plans: d.plans?.map((p) => ({ ...p, status: planStatuses[p.id] ?? p.status })),
+            charts: d.charts,
+            trace: d.trace,
+          };
+        });
+        setMessages(msgs);
       } finally {
         setInitializing(false);
       }
     })();
-  }, [loadMessages]);
+  }, []);
 
-  // "Resetar chat": wipe the single conversation in place (keeps the same row).
+  // "Resetar chat": clear the screen instantly (optimistic); the DB wipe runs in
+  // the background. Same chat row is kept, so activeId stays valid.
   async function newChat() {
     if (creating || loading) return;
     if (!(await confirm({ title: "Resetar chat", description: "Apagar toda a conversa atual? Esta ação não pode ser desfeita.", confirmLabel: "Resetar" })))
       return;
-    setCreating(true);
+    setMessages([]);
     setError(null);
-    try {
-      const chat = await resetChat();
-      setActiveId(chat.id);
-      setMessages([]);
-    } finally {
-      setCreating(false);
-    }
+    setCreating(true);
+    resetChat()
+      .then((chat) => setActiveId(chat.id))
+      .catch(() => setError("Falha ao resetar o chat."))
+      .finally(() => setCreating(false));
   }
 
   function setPlanStatus(planId: string, status: string) {
