@@ -107,6 +107,10 @@ client (importar Prisma no bundle do browser quebra o Turbopack — ver gotcha).
 
 Case demands "responsive and instant". Server-side pagination re-queried the DB on every slider tick / chip toggle → lag. Reworked to load the whole working set once per scope (`fetchInvoiceDataset` in `src/lib/queries/invoices.ts`) and do all filtering, sorting, search, and pagination in the client `InvoiceTable` component — zero network after load. `unpaid` / `overdue` load the full set (~1.9k / fewer rows). `all` is capped at `DATASET_CAP = 1500` highest-risk rows (shows a banner). Decimals→numbers, dates→ISO at the RSC boundary so the dataset serializes cleanly. Trade-off accepted: filters left the URL (no shareable/bookmark state, no back-button filter history); scope stays in the URL and is the only thing that triggers a server refetch.
 
+### Every write must refresh the aggregated lists, not just the detail panel
+
+Recurring expectation: create/edit/delete updates the visible list instantly, including the list on the page currently open. The detail panels update optimistically (local state + list-cache patch for the invoices table), but the dedicated activity pages (`/notes`, `/followups`, `/agreements`) and the dashboard read straight from the DB. Two-part invariant: (1) every mutating server action calls `revalidate()` which now covers `/`, `/invoices`, `/customers`, `/notes`, `/followups`, `/agreements`; (2) both detail panels call `router.refresh()` in `reconcile` (onSuccess of every mutation) so the current route's server components re-run and the list behind the open Sheet updates in place — `router.refresh()` preserves client state, so the Sheet stays open. When adding a new write path, wire both or the list goes stale.
+
 ### Risk slider commits on release, not on every tick
 
 `riskDraft` follows the thumb live (shown number updates), but the applied `minRisk` only updates on `onMouseUp`/`onTouchEnd`/`onKeyUp`. "Select first, then crop."
