@@ -34,11 +34,6 @@ const SCOPES = [
 const SEGMENTS = ["SMB", "MID", "ENT"];
 const STATUSES = Object.keys(STATUS_LABELS) as InvoiceStatus[];
 const COUNTS = [5, 10, 15] as const;
-const SORTS = [
-  { value: "risco", label: "Maior risco" },
-  { value: "valor_aberto", label: "Maior valor em aberto" },
-  { value: "vencimento", label: "Vencimento mais próximo" },
-] as const;
 
 const DEFAULT: ReportConfig = reportConfigSchema.parse({ preset: "maior_risco" });
 
@@ -175,30 +170,15 @@ export function ReportDialog() {
               )}
             </Field>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Quantidade">
-                <div className="flex gap-1.5">
-                  {COUNTS.map((n) => (
-                    <Chip key={n} active={cfg.count === n} onClick={() => tweak({ count: n })}>
-                      {n}
-                    </Chip>
-                  ))}
-                </div>
-              </Field>
-              <Field label="Ordenar por">
-                <select
-                  value={cfg.sort}
-                  onChange={(e) => tweak({ sort: e.target.value as ReportConfig["sort"] })}
-                  className={inputCls}
-                >
-                  {SORTS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
+            <Field label="Quantidade">
+              <div className="flex gap-1.5">
+                {COUNTS.map((n) => (
+                  <Chip key={n} active={cfg.count === n} onClick={() => tweak({ count: n })}>
+                    {n}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
 
             <Field label="Escopo">
               <select
