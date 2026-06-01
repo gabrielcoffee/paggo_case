@@ -6,6 +6,20 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+// Supabase auth errors come in English; map the common ones to Portuguese.
+function translateAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) return "E-mail ou senha inválidos.";
+  if (m.includes("email not confirmed")) return "E-mail ainda não confirmado.";
+  if (m.includes("user already registered")) return "Este e-mail já está cadastrado.";
+  if (m.includes("password should be at least")) return "A senha deve ter ao menos 6 caracteres.";
+  if (m.includes("unable to validate email") || m.includes("invalid email")) return "E-mail inválido.";
+  if (m.includes("rate limit")) return "Muitas tentativas. Tente novamente mais tarde.";
+  if (m.includes("for security purposes")) return "Aguarde alguns segundos antes de tentar de novo.";
+  if (m.includes("user not found")) return "Usuário não encontrado.";
+  return message;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -39,7 +53,7 @@ export function LoginForm() {
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError((err as Error).message);
+      setError(translateAuthError((err as Error).message));
     } finally {
       setLoading(false);
     }
@@ -52,7 +66,7 @@ export function LoginForm() {
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) setError(error.message);
+    if (error) setError(translateAuthError(error.message));
     // on success the browser is redirected to Google by the SDK
   }
 

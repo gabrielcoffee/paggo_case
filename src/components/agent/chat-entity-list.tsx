@@ -4,7 +4,7 @@ import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip } from "@/components/status-chip";
 import { ScopeBadge } from "@/components/scope-badge";
 import { brl, dateTime } from "@/lib/format";
-import { SEGMENT_LABELS } from "@/lib/invoice-status";
+import { SEGMENT_LABELS, FOLLOWUP_STATUS_LABELS } from "@/lib/invoice-status";
 import type { PanelTab } from "@/components/invoice-detail-panel";
 import { cn } from "@/lib/utils";
 
@@ -144,7 +144,7 @@ export function ChatEntityList({
               <ScopeBadge entityType={r.entityType} />
               <div className="text-right">
                 <div className="font-mono text-[11px] tabular-nums">{dateTime(r.vencimento)}</div>
-                <div className="text-[11px] text-muted-foreground">{r.status}</div>
+                <div className="text-[11px] text-muted-foreground">{FOLLOWUP_STATUS_LABELS[r.status] ?? r.status}</div>
               </div>
             </div>
           </Row>

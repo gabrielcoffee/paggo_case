@@ -5,6 +5,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { InvoiceDetailPanel, type PanelTab } from "@/components/invoice-detail-panel";
 import { CustomerDetailPanel } from "@/components/customer-detail-panel";
 import { ScopeBadge } from "@/components/scope-badge";
+import { FOLLOWUP_STATUS_LABELS } from "@/lib/invoice-status";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { prefetchCustomer } from "@/lib/customer-detail-cache";
 import { brl, dateTime } from "@/lib/format";
@@ -122,7 +123,7 @@ export function ActivityList(props: Props) {
                   </td>
                   <td className="text-xs">{CHANNEL_LABELS[f.canal] ?? f.canal}</td>
                   <td className="whitespace-nowrap font-mono text-xs tabular-nums">{dateTime(f.vencimento)}</td>
-                  <td className="text-xs text-muted-foreground">{f.status}</td>
+                  <td className="text-xs text-muted-foreground">{FOLLOWUP_STATUS_LABELS[f.status] ?? f.status}</td>
                 </tr>
               ))}
 

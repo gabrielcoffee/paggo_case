@@ -33,6 +33,12 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   paid: "Paga",
 };
 
+export const FOLLOWUP_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendente",
+  done: "Concluído",
+  missed: "Perdido",
+};
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BOLETO: "Boleto",
   PIX: "PIX",

@@ -11,6 +11,13 @@ const ACTION_LABELS: Record<string, string> = {
   agreement_created: "Acordo criado",
   agreement_updated: "Acordo atualizado",
   agreement_deleted: "Acordo excluído",
+  automation_created: "Automação criada",
+};
+
+const ORIGIN_LABELS: Record<string, string> = {
+  analyst: "Analista",
+  agent: "Agente",
+  automation: "Automação",
 };
 
 function summarize(e: DetailAudit): string | null {
@@ -61,7 +68,7 @@ function OriginBadge({ origin }: { origin: string }) {
           : "bg-secondary text-secondary-foreground",
       )}
     >
-      {origin}
+      {ORIGIN_LABELS[origin] ?? origin}
     </span>
   );
 }

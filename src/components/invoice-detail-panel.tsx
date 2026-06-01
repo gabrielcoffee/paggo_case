@@ -36,7 +36,7 @@ import {
 import { useMutation } from "@/lib/use-mutation";
 import { brl, date, dateTime } from "@/lib/format";
 import { daysOverdue } from "@/lib/aging";
-import { SEGMENT_LABELS, PAYMENT_METHOD_LABELS, canTransition } from "@/lib/invoice-status";
+import { SEGMENT_LABELS, PAYMENT_METHOD_LABELS, FOLLOWUP_STATUS_LABELS, canTransition } from "@/lib/invoice-status";
 import { buildSchedule } from "@/lib/agreement";
 import { RULE_LABELS } from "@/lib/risk-rules";
 import type { InvoiceStatus } from "@/generated/prisma/enums";
@@ -435,7 +435,7 @@ export function InvoiceDetailPanel({
               <Handshake className="h-3.5 w-3.5" /> Acordo
             </TabsTrigger>
             <TabsTrigger value="audit" className="inline-flex items-center gap-1">
-              <History className="h-3.5 w-3.5" /> Audit
+              <History className="h-3.5 w-3.5" /> Auditoria
               {view.auditEvents.length ? ` (${view.auditEvents.length})` : ""}
             </TabsTrigger>
           </TabsList>
@@ -566,7 +566,7 @@ function FollowUps({
               <span>
                 {CHANNEL_LABELS[f.channel] ?? f.channel} · {dateTime(f.dueAt)}
               </span>
-              <span className="text-xs text-muted-foreground">{f.status}</span>
+              <span className="text-xs text-muted-foreground">{FOLLOWUP_STATUS_LABELS[f.status] ?? f.status}</span>
             </li>
           ))}
           {detail.followUps.length === 0 && (

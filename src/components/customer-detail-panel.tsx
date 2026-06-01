@@ -26,7 +26,7 @@ import { useMutation } from "@/lib/use-mutation";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { brl, date, dateTime } from "@/lib/format";
 import { daysOverdue } from "@/lib/aging";
-import { SEGMENT_LABELS } from "@/lib/invoice-status";
+import { SEGMENT_LABELS, FOLLOWUP_STATUS_LABELS } from "@/lib/invoice-status";
 
 const CHANNEL_LABELS: Record<string, string> = {
   phone: "Telefone",
@@ -245,7 +245,7 @@ export function CustomerDetailPanel({
               <Clock className="h-3.5 w-3.5" /> Follow-ups
             </TabsTrigger>
             <TabsTrigger value="audit" className="inline-flex items-center gap-1">
-              <History className="h-3.5 w-3.5" /> Audit
+              <History className="h-3.5 w-3.5" /> Auditoria
             </TabsTrigger>
           </TabsList>
 
@@ -346,7 +346,7 @@ export function CustomerDetailPanel({
                       <span>
                         {CHANNEL_LABELS[f.channel] ?? f.channel} · {dateTime(f.dueAt)}
                       </span>
-                      <span className="text-xs text-muted-foreground">{f.status}</span>
+                      <span className="text-xs text-muted-foreground">{FOLLOWUP_STATUS_LABELS[f.status] ?? f.status}</span>
                     </li>
                   ))}
                   {view.followUps.length === 0 && (

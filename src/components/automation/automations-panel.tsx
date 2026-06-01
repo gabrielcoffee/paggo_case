@@ -215,7 +215,7 @@ function RunHistory({ id }: { id: string }) {
         <li key={run.id} className="flex items-center gap-2 py-1 text-[11px]">
           <span className={cn("h-1.5 w-1.5 rounded-full", run.status === "failed" ? "bg-destructive" : "bg-chart-4")} />
           <span className="font-mono tabular-nums text-muted-foreground">{dateTime(run.runAt)}</span>
-          <span className="text-muted-foreground">({run.trigger})</span>
+          <span className="text-muted-foreground">({run.trigger === "scheduled" ? "agendada" : "manual"})</span>
           <span className="truncate">{run.summary}</span>
         </li>
       ))}
