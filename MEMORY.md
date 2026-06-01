@@ -190,6 +190,8 @@ Computing 5 rules across 8000 invoices on every SELECT is wasteful. Persisting `
 
 Notes can attach to either a customer or an invoice (spec requirement). Same for follow-ups and audit events. Two parallel tables per entity would duplicate schema. Single table with `entityType: 'invoice' | 'customer'` + `entityId` keeps things simple at the cost of losing strict referential integrity (no FK). Acceptable for this prototype — referential integrity is enforced at the application layer.
 
+**Scope decision (both invoice + customer stay valid).** Notes and follow-ups intentionally support both scopes — collapsing to one is lossy either way: an invoice-only model has nowhere to record durable customer context ("em recuperação judicial, não cobrar agressivo"), and a customer-only model loses the link to *which* of N overdue invoices a promise refers to. **Agreements stay invoice-only** (`PaymentAgreement.originalInvoiceId`): an agreement restructures one specific debt; multi-invoice "umbrella" agreements are real but out of scope. Chosen UX is **silos + a `ScopeBadge` (Fatura/Cliente) in the aggregated views (activity page, agent chat lists) — no cross-entity inheritance**. Within a detail panel scope is unambiguous (one bucket); the badge only matters where both kinds mix. Deliberately *not* implemented: a note on a customer is NOT surfaced when working an invoice of that customer. Accepted gap for the case.
+
 ### Hardcoded `analyst-default` actor (no auth)
 
 The optional bonus includes auth. ROI is low for this case — auth doesn't change the prioritization quality, agent quality, or CRUD correctness. All audit entries use `actor: 'analyst-default'` until/unless auth is added. The schema already accommodates real user IDs without migration.
