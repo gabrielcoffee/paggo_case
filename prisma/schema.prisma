@@ -204,3 +204,44 @@ model ChatMessage {
 
   @@index([chatId])
 }
+
+// Scheduled rule: periodically check a condition over invoices/customers and run
+// an effect (note, follow-up, status change, or emailed report). condition/effect
+// are stored as JSON validated by zod (src/lib/automation/automation-spec.ts).
+model AutomationRule {
+  id         String   @id @default(cuid())
+  name       String
+  enabled    Boolean  @default(true)
+  target     String // "invoice" | "customer"
+  condition  Json
+  effect     Json
+  frequency  String // "daily" | "weekly" | "monthly"
+  startDate  DateTime @db.Date
+  timeOfDay  String // "HH:mm"
+  weekday    Int? // 0-6 for weekly
+  dayOfMonth Int? // 1-31 for monthly
+  nextRunAt  DateTime
+  lastRunAt  DateTime?
+  createdBy  String
+  createdAt  DateTime @default(now())
+
+  runs AutomationRun[]
+
+  @@index([enabled, nextRunAt])
+}
+
+model AutomationRun {
+  id           String   @id @default(cuid())
+  automationId String
+  runAt        DateTime @default(now())
+  trigger      String // "manual" | "scheduled"
+  status       String // "success" | "failed" | "skipped"
+  matched      Int
+  acted        Int
+  summary      String
+  detail       Json?
+
+  automation AutomationRule @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+}
