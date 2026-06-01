@@ -80,9 +80,9 @@ const RULE_DESC: Record<string, string> = {
   chronicity:
     "Atrasos do cliente nos últimos 12 meses. Proporcional até 5 atrasos, quando bate o teto.",
   ent_first_late:
-    "Cliente Enterprise atrasando pela primeira vez. Tudo ou nada: pontua cheio quando ocorre.",
+    "Cliente Enterprise atrasando pela primeira vez. Pontua cheio quando ocorre.",
   boleto_stuck:
-    "Boleto com mais de 2 tentativas (falha técnica). Tudo ou nada: pontua cheio quando dispara.",
+    "Boleto com mais de 2 tentativas (falha técnica). Pontua cheio quando ocorre.",
 };
 
 function liveScore(

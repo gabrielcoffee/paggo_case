@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
   MessageSquare,
   Clock,
   Handshake,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,7 @@ const NAV: NavItem[] = [
 
 export function AppSidebar({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -52,14 +55,61 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
-        {NAV.map((item) => (
-          <div key={item.href} className="flex flex-col gap-0.5">
-            <NavLink item={item} active={isActive(item.href)} />
-            {item.children?.map((c) => (
-              <NavLink key={c.href} item={c} active={isActive(c.href)} nested />
-            ))}
-          </div>
-        ))}
+        {NAV.map((item) => {
+          if (!item.children) {
+            return <NavLink key={item.href} item={item} active={isActive(item.href)} />;
+          }
+          const childActive = item.children.some((c) => isActive(c.href));
+          const expanded = open[item.href] ?? childActive;
+          const active = isActive(item.href);
+          const Icon = item.icon;
+          return (
+            <div key={item.href}>
+              <div
+                className={cn(
+                  "flex items-center rounded-md pr-1 transition-colors",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+              >
+                <Link
+                  href={item.href}
+                  className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-sm font-medium"
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setOpen((s) => ({ ...s, [item.href]: !expanded }))}
+                  aria-label={expanded ? "Recolher" : "Expandir"}
+                  aria-expanded={expanded}
+                  className="rounded p-1 opacity-70 hover:opacity-100"
+                >
+                  <ChevronDown
+                    className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
+                  />
+                </button>
+              </div>
+
+              <div
+                className={cn(
+                  "grid transition-all duration-200 ease-out",
+                  expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="mt-0.5 flex flex-col gap-0.5">
+                    {item.children.map((c) => (
+                      <NavLink key={c.href} item={c} active={isActive(c.href)} nested />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
       <div className="space-y-2 border-t border-sidebar-border p-3">
