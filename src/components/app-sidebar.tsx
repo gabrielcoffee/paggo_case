@@ -13,12 +13,14 @@ import {
   Clock,
   Handshake,
   ChevronDown,
+  Bot,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; children?: NavItem[] };
+type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; children?: NavItem[] };
 
 const NAV: NavItem[] = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -33,14 +35,26 @@ const NAV: NavItem[] = [
     ],
   },
   { href: "/customers", label: "Clientes", icon: Users },
-  { href: "/agent", label: "Agente", icon: Sparkles },
+  {
+    href: "/agent",
+    label: "Agente",
+    icon: Sparkles,
+    children: [
+      { href: "/agent", label: "Chat", icon: Bot, exact: true },
+      { href: "/agent/automacoes", label: "Automações", icon: Zap },
+    ],
+  },
 ];
 
 export function AppSidebar({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const isActive = (item: { href: string; exact?: boolean }) =>
+    item.exact
+      ? pathname === item.href
+      : item.href === "/"
+        ? pathname === "/"
+        : pathname.startsWith(item.href);
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -57,11 +71,11 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
         {NAV.map((item) => {
           if (!item.children) {
-            return <NavLink key={item.href} item={item} active={isActive(item.href)} />;
+            return <NavLink key={item.href} item={item} active={isActive(item)} />;
           }
-          const childActive = item.children.some((c) => isActive(c.href));
+          const childActive = item.children.some((c) => isActive(c));
           const expanded = open[item.href] ?? childActive;
-          const active = isActive(item.href);
+          const active = isActive(item);
           const Icon = item.icon;
           return (
             <div key={item.href}>
@@ -102,7 +116,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
                 <div className="overflow-hidden">
                   <div className="mt-0.5 flex flex-col gap-0.5">
                     {item.children.map((c) => (
-                      <NavLink key={c.href} item={c} active={isActive(c.href)} nested />
+                      <NavLink key={c.href} item={c} active={isActive(c)} nested />
                     ))}
                   </div>
                 </div>

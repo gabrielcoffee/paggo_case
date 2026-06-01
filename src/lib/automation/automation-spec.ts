@@ -58,7 +58,7 @@ export type EffectKind = Effect["kind"];
 // Cadence is derived from startDate (weekly = same weekday, monthly = same day).
 
 export const scheduleSchema = z.object({
-  frequency: z.enum(["daily", "weekly", "monthly"]),
+  frequency: z.enum(["weekly", "monthly"]),
   startDate: z.string().min(1), // yyyy-mm-dd
   timeOfDay: z
     .string()
@@ -107,7 +107,6 @@ export function renderTemplate(tpl: string, vars: Record<string, string>): strin
 // --- human-readable summaries (UI + agent recap) -------------------------
 
 const FREQ_LABELS: Record<Schedule["frequency"], string> = {
-  daily: "todo dia",
   weekly: "toda semana",
   monthly: "todo mês",
 };

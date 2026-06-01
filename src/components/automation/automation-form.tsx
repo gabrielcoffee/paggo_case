@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { NumberInput } from "@/components/ui/number-input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SEGMENT_LABELS, STATUS_LABELS } from "@/lib/invoice-status";
@@ -19,7 +21,6 @@ type EffectKind = "note" | "followup" | "status" | "report_email";
 const CHANNEL_LABELS: Record<string, string> = { phone: "Telefone", email: "E-mail", whatsapp: "WhatsApp" };
 const SEGMENTS = ["SMB", "MID", "ENT"];
 const FREQS = [
-  { value: "daily", label: "Todo dia" },
   { value: "weekly", label: "Toda semana" },
   { value: "monthly", label: "Todo mês" },
 ] as const;
@@ -92,11 +93,12 @@ export function AutomationForm({
   const [reportCount, setReportCount] = useState<5 | 10 | 15>(10);
 
   // schedule
-  const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
   const [startDate, setStartDate] = useState(today.slice(0, 10));
   const [timeOfDay, setTimeOfDay] = useState("10:00");
 
   const [preview, setPreview] = useState<number | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -109,14 +111,20 @@ export function AutomationForm({
     return {};
   }
 
-  // Live preview of how many entities match right now (debounced).
+  // Live preview of how many entities match right now (debounced). Shows a
+  // spinner from the moment an input changes until the new count lands.
   useEffect(() => {
     if (!open || isReport) return;
     let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPreviewing(true);
     const cond = condition();
     const t = setTimeout(async () => {
       const n = await previewMatches(target, cond);
-      if (alive) setPreview(n);
+      if (alive) {
+        setPreview(n);
+        setPreviewing(false);
+      }
     }, 350);
     return () => {
       alive = false;
@@ -263,11 +271,11 @@ export function AutomationForm({
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col gap-1.5">
                     <Lbl>Risco mínimo</Lbl>
-                    <input type="number" min={0} max={100} value={minRisk} onChange={(e) => setMinRisk(Number(e.target.value) || 0)} className={inputCls} />
+                    <NumberInput value={minRisk} onChange={setMinRisk} min={0} max={100} step={5} />
                   </label>
                   <label className="flex flex-col gap-1.5">
                     <Lbl>Em aberto ≥ (R$)</Lbl>
-                    <input type="number" min={0} value={minOpen} onChange={(e) => setMinOpen(Number(e.target.value) || 0)} className={inputCls} />
+                    <NumberInput value={minOpen} onChange={setMinOpen} min={0} step={1000} />
                   </label>
                 </div>
               </>
@@ -288,19 +296,23 @@ export function AutomationForm({
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col gap-1.5">
                     <Lbl>AR vencido ≥ (R$)</Lbl>
-                    <input type="number" min={0} value={minOverdueAr} onChange={(e) => setMinOverdueAr(Number(e.target.value) || 0)} className={inputCls} />
+                    <NumberInput value={minOverdueAr} onChange={setMinOverdueAr} min={0} step={1000} />
                   </label>
                   <label className="flex flex-col gap-1.5">
                     <Lbl>Qtd. vencidas ≥</Lbl>
-                    <input type="number" min={0} value={minOverdueCount} onChange={(e) => setMinOverdueCount(Number(e.target.value) || 0)} className={inputCls} />
+                    <NumberInput value={minOverdueCount} onChange={setMinOverdueCount} min={0} step={1} />
                   </label>
                 </div>
               </>
             )}
 
             {!isReport && (
-              <p className="text-xs text-muted-foreground">
-                {preview === null ? "Calculando correspondências…" : (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {previewing || preview === null ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculando correspondências…
+                  </>
+                ) : (
                   <>
                     <span className="font-semibold text-foreground">{preview}</span>{" "}
                     {target === "invoice" ? "fatura(s)" : "cliente(s)"} correspondem agora.
@@ -332,7 +344,7 @@ export function AutomationForm({
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <Lbl>Vencimento em (dias)</Lbl>
-                  <input type="number" min={0} value={dueOffsetDays} onChange={(e) => setDueOffsetDays(Number(e.target.value) || 0)} className={inputCls} />
+                  <NumberInput value={dueOffsetDays} onChange={setDueOffsetDays} min={0} max={365} step={1} />
                 </label>
               </div>
             )}

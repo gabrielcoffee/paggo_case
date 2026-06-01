@@ -1,4 +1,4 @@
-import { addDays, addWeeks, addMonths, parseISO, setHours, setMinutes, setSeconds, setMilliseconds } from "date-fns";
+import { addWeeks, addMonths, parseISO, setHours, setMinutes, setSeconds, setMilliseconds } from "date-fns";
 import type { Schedule } from "@/lib/automation/automation-spec";
 
 // Next run is the first scheduled instant strictly after `from`, never before the
@@ -10,11 +10,7 @@ export function computeNextRun(schedule: Schedule, from: Date): Date {
   const base = setMilliseconds(setSeconds(setMinutes(setHours(parseISO(schedule.startDate), h), m), 0), 0);
 
   const step = (d: Date): Date =>
-    schedule.frequency === "daily"
-      ? addDays(d, 1)
-      : schedule.frequency === "weekly"
-        ? addWeeks(d, 1)
-        : addMonths(d, 1);
+    schedule.frequency === "weekly" ? addWeeks(d, 1) : addMonths(d, 1);
 
   let run = base;
   let guard = 0;

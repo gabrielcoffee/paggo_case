@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { AgentChat } from "@/components/agent/agent-chat";
-import { AutomationsPanel } from "@/components/automation/automations-panel";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { InvoiceDetailPanel } from "@/components/invoice-detail-panel";
 import { CustomerDetailPanel } from "@/components/customer-detail-panel";
 import { PanelResizeHandle } from "@/components/panel-resize-handle";
@@ -40,52 +38,37 @@ export function AgentWorkspace({ today }: { today: string }) {
   }
 
   return (
-    <Tabs defaultValue="chat" className="flex h-screen min-w-0 flex-1 flex-col">
-      <div className="shrink-0 border-b border-border px-4">
-        <TabsList variant="line" className="h-11">
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="automacoes">Automações</TabsTrigger>
-        </TabsList>
-      </div>
-
-      <TabsContent value="chat" className="min-h-0 flex-1 outline-none">
-        <div className="flex h-full">
-          <AgentChat onSelect={open} />
-          {sel && (
-            <aside
-              style={{ width, maxWidth: "100vw" }}
-              className={cn(
-                "relative flex h-full shrink-0 flex-col border-l border-border bg-card duration-200",
-                closing ? "animate-out slide-out-to-right" : "animate-in slide-in-from-right",
-              )}
-            >
-              <PanelResizeHandle onResize={(x) => setWidth(window.innerWidth - x)} />
-              {sel.kind === "invoice" ? (
-                <InvoiceDetailPanel
-                  key={`${sel.id}:${sel.tab ?? "overview"}`}
-                  id={sel.id}
-                  today={today}
-                  onClose={close}
-                  initialTab={sel.tab}
-                />
-              ) : (
-                <CustomerDetailPanel
-                  key={`${sel.id}:${sel.tab ?? "overview"}`}
-                  id={sel.id}
-                  today={today}
-                  onClose={close}
-                  initialTab={sel.tab}
-                  onOpenInvoice={(invId) => open({ kind: "invoice", id: invId })}
-                />
-              )}
-            </aside>
+    <div className="flex h-screen">
+      <AgentChat onSelect={open} />
+      {sel && (
+        <aside
+          style={{ width, maxWidth: "100vw" }}
+          className={cn(
+            "relative flex h-screen shrink-0 flex-col border-l border-border bg-card duration-200",
+            closing ? "animate-out slide-out-to-right" : "animate-in slide-in-from-right",
           )}
-        </div>
-      </TabsContent>
-
-      <TabsContent value="automacoes" className="min-h-0 flex-1 overflow-hidden outline-none">
-        <AutomationsPanel today={today} />
-      </TabsContent>
-    </Tabs>
+        >
+          <PanelResizeHandle onResize={(x) => setWidth(window.innerWidth - x)} />
+          {sel.kind === "invoice" ? (
+            <InvoiceDetailPanel
+              key={`${sel.id}:${sel.tab ?? "overview"}`}
+              id={sel.id}
+              today={today}
+              onClose={close}
+              initialTab={sel.tab}
+            />
+          ) : (
+            <CustomerDetailPanel
+              key={`${sel.id}:${sel.tab ?? "overview"}`}
+              id={sel.id}
+              today={today}
+              onClose={close}
+              initialTab={sel.tab}
+              onOpenInvoice={(invId) => open({ kind: "invoice", id: invId })}
+            />
+          )}
+        </aside>
+      )}
+    </div>
   );
 }

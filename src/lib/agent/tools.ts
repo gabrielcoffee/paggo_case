@@ -280,7 +280,7 @@ export const TOOL_DEFS = [
         },
         schedule: {
           type: "object",
-          description: "{frequency:'daily'|'weekly'|'monthly', startDate:'YYYY-MM-DD', timeOfDay:'HH:mm' (padrão 10:00)}",
+          description: "{frequency:'weekly'|'monthly', startDate:'YYYY-MM-DD', timeOfDay:'HH:mm' (padrão 10:00)}",
         },
       },
       required: ["name", "target", "condition", "effect", "schedule"],
