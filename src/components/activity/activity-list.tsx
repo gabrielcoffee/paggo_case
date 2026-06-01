@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { InvoiceDetailPanel, type PanelTab } from "@/components/invoice-detail-panel";
 import { CustomerDetailPanel } from "@/components/customer-detail-panel";
+import { ScopeBadge } from "@/components/scope-badge";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { prefetchCustomer } from "@/lib/customer-detail-cache";
 import { brl, dateTime } from "@/lib/format";
@@ -94,7 +95,10 @@ export function ActivityList(props: Props) {
                     <span className="block truncate">{n.texto}</span>
                   </td>
                   <td>
-                    <span className="block truncate">{n.cliente}</span>
+                    <div className="flex items-center gap-2">
+                      <ScopeBadge entityType={n.entityType} />
+                      <span className="truncate">{n.cliente}</span>
+                    </div>
                     <span className="font-mono text-[11px] text-muted-foreground">{n.entityId}</span>
                   </td>
                   <td className="text-xs">{n.autor}</td>
@@ -109,7 +113,10 @@ export function ActivityList(props: Props) {
                     <span className="block truncate">{f.descricao}</span>
                   </td>
                   <td>
-                    <span className="block truncate">{f.cliente}</span>
+                    <div className="flex items-center gap-2">
+                      <ScopeBadge entityType={f.entityType} />
+                      <span className="truncate">{f.cliente}</span>
+                    </div>
                     <span className="font-mono text-[11px] text-muted-foreground">{f.entityId}</span>
                   </td>
                   <td className="text-xs">{CHANNEL_LABELS[f.canal] ?? f.canal}</td>

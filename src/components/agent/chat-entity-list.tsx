@@ -2,6 +2,7 @@
 
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip } from "@/components/status-chip";
+import { ScopeBadge } from "@/components/scope-badge";
 import { brl, dateTime } from "@/lib/format";
 import { SEGMENT_LABELS } from "@/lib/invoice-status";
 import type { PanelTab } from "@/components/invoice-detail-panel";
@@ -120,7 +121,10 @@ export function ChatEntityList({
                 {r.entityId} · {r.autor}
               </div>
             </div>
-            <span className="shrink-0 text-[11px] text-muted-foreground">{dateTime(r.criadoEm)}</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <ScopeBadge entityType={r.entityType} />
+              <span className="text-[11px] text-muted-foreground">{dateTime(r.criadoEm)}</span>
+            </div>
           </Row>
         ))}
 
@@ -136,9 +140,12 @@ export function ChatEntityList({
                 {r.entityId} · {CHANNEL_LABELS[r.canal] ?? r.canal}
               </div>
             </div>
-            <div className="shrink-0 text-right">
-              <div className="font-mono text-[11px] tabular-nums">{dateTime(r.vencimento)}</div>
-              <div className="text-[11px] text-muted-foreground">{r.status}</div>
+            <div className="flex shrink-0 items-center gap-2">
+              <ScopeBadge entityType={r.entityType} />
+              <div className="text-right">
+                <div className="font-mono text-[11px] tabular-nums">{dateTime(r.vencimento)}</div>
+                <div className="text-[11px] text-muted-foreground">{r.status}</div>
+              </div>
             </div>
           </Row>
         ))}
