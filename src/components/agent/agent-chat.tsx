@@ -11,7 +11,7 @@ import type { EntitySelect } from "@/components/agent/chat-entity-list";
 import type { PanelTab } from "@/components/invoice-detail-panel";
 import { ToolTrace } from "@/components/agent/tool-trace";
 import type { TraceEntry } from "@/lib/agent/loop";
-import { listChats, createChat, getChatMessages } from "@/lib/queries/chats";
+import { getOrCreateChat, resetChat, getChatMessages } from "@/lib/queries/chats";
 import { getPlanStatuses } from "@/lib/actions/agent-plan";
 
 type ChartItem = { type: string; data: unknown; tab?: string };
@@ -67,32 +67,27 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
     setMessages(msgs);
   }, []);
 
-  // Single, persistent conversation: load the most recent chat if one exists.
+  // Single, persistent conversation per user: load (or create) the one chat.
   useEffect(() => {
     (async () => {
       try {
-        const cs = await listChats();
-        if (cs.length) {
-          setActiveId(cs[0].id);
-          await loadMessages(cs[0].id);
-        }
+        const chat = await getOrCreateChat();
+        setActiveId(chat.id);
+        await loadMessages(chat.id);
       } finally {
         setInitializing(false);
       }
     })();
   }, [loadMessages]);
 
+  // "Resetar chat": wipe the single conversation in place (keeps the same row).
   async function newChat() {
     if (creating || loading) return;
     setCreating(true);
     setError(null);
     try {
-      const r = await createChat();
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      setActiveId(r.chat.id);
+      const chat = await resetChat();
+      setActiveId(chat.id);
       setMessages([]);
     } finally {
       setCreating(false);
@@ -123,12 +118,8 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
 
     let chatId = activeId;
     if (!chatId) {
-      const r = await createChat(q);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      chatId = r.chat.id;
+      const chat = await getOrCreateChat();
+      chatId = chat.id;
       setActiveId(chatId);
     }
 

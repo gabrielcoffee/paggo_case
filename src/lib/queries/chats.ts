@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getUser } from "@/lib/supabase/server";
-import { MAX_CHATS, type ChatSummary, type StoredMessage } from "@/lib/queries/chat-types";
+import { type ChatSummary, type StoredMessage } from "@/lib/queries/chat-types";
 
 // userId always comes from the session — never trust a client-passed id.
 async function uid(): Promise<string> {
@@ -22,16 +22,34 @@ export async function listChats(): Promise<ChatSummary[]> {
   return rows.map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString() }));
 }
 
-export async function createChat(
-  title = "Resetar chat",
-): Promise<{ ok: true; chat: ChatSummary } | { ok: false; error: string }> {
+function summary(c: { id: string; title: string; updatedAt: Date }): ChatSummary {
+  return { id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString() };
+}
+
+// One persistent chat per user. No cap, no chat list — the agent keeps a single
+// conversation that the user can reset. Returns the existing chat or creates it.
+export async function getOrCreateChat(): Promise<ChatSummary> {
   const userId = await uid();
-  const count = await prisma.chat.count({ where: { userId } });
-  if (count >= MAX_CHATS) {
-    return { ok: false, error: `Limite de ${MAX_CHATS} chats. Exclua um para criar outro.` };
-  }
-  const c = await prisma.chat.create({ data: { userId, title: title.slice(0, 80) || "Resetar chat" } });
-  return { ok: true, chat: { id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString() } };
+  const existing = await prisma.chat.findFirst({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (existing) return summary(existing);
+  const c = await prisma.chat.create({ data: { userId, title: "Chat" } });
+  return summary(c);
+}
+
+// "Resetar chat": wipe the single conversation in place (messages + any agent
+// plans tied to it) and keep the same row so the user always has exactly one.
+export async function resetChat(): Promise<ChatSummary> {
+  const chat = await getOrCreateChat();
+  await prisma.agentPlan.deleteMany({ where: { sessionId: chat.id } });
+  await prisma.chatMessage.deleteMany({ where: { chatId: chat.id } });
+  const c = await prisma.chat.update({
+    where: { id: chat.id },
+    data: { updatedAt: new Date() },
+  });
+  return summary(c);
 }
 
 export async function getChatMessages(chatId: string): Promise<StoredMessage[]> {

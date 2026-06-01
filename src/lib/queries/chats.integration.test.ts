@@ -9,12 +9,12 @@ vi.mock("@/lib/supabase/server", () => ({
 import { prisma } from "@/lib/prisma";
 import {
   listChats,
-  createChat,
+  getOrCreateChat,
+  resetChat,
   getChatMessages,
   appendMessage,
   deleteChat,
 } from "@/lib/queries/chats";
-import { MAX_CHATS } from "@/lib/queries/chat-types";
 
 async function cleanup() {
   const chats = await prisma.chat.findMany({ where: { userId: TEST_USER } });
@@ -28,25 +28,31 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("createChat", () => {
-  it("creates chats up to the cap and blocks the 6th", async () => {
-    for (let i = 0; i < MAX_CHATS; i++) {
-      const r = await createChat(`chat ${i}`);
-      expect(r.ok).toBe(true);
-    }
-    const sixth = await createChat("over the limit");
-    expect(sixth.ok).toBe(false);
-    expect((await listChats()).length).toBe(MAX_CHATS);
+describe("single chat per user", () => {
+  it("getOrCreateChat returns the same single chat on repeat calls", async () => {
+    const a = await getOrCreateChat();
+    const b = await getOrCreateChat();
+    expect(a.id).toBe(b.id);
+    expect((await listChats()).length).toBe(1);
+  });
+
+  it("resetChat wipes messages but keeps exactly one chat", async () => {
+    const chat = await getOrCreateChat();
+    await appendMessage(chat.id, "user", "oi");
+    await appendMessage(chat.id, "assistant", "olá", { trace: [] });
+    const reset = await resetChat();
+    expect(reset.id).toBe(chat.id);
+    expect((await getChatMessages(chat.id)).length).toBe(0);
+    expect((await listChats()).length).toBe(1);
   });
 });
 
 describe("messages + ownership", () => {
   it("appends and reads messages for an owned chat", async () => {
-    const r = await createChat("c1");
-    if (!r.ok) throw new Error("setup");
-    await appendMessage(r.chat.id, "user", "oi");
-    await appendMessage(r.chat.id, "assistant", "olá", { trace: [] });
-    const msgs = await getChatMessages(r.chat.id);
+    const chat = await getOrCreateChat();
+    await appendMessage(chat.id, "user", "oi");
+    await appendMessage(chat.id, "assistant", "olá", { trace: [] });
+    const msgs = await getChatMessages(chat.id);
     expect(msgs.map((m) => m.role)).toEqual(["user", "assistant"]);
   });
 
@@ -58,11 +64,10 @@ describe("messages + ownership", () => {
   });
 
   it("deleteChat removes the chat and its messages", async () => {
-    const r = await createChat("c2");
-    if (!r.ok) throw new Error("setup");
-    await appendMessage(r.chat.id, "user", "x");
-    await deleteChat(r.chat.id);
-    expect(await prisma.chat.findUnique({ where: { id: r.chat.id } })).toBeNull();
-    expect(await prisma.chatMessage.count({ where: { chatId: r.chat.id } })).toBe(0);
+    const chat = await getOrCreateChat();
+    await appendMessage(chat.id, "user", "x");
+    await deleteChat(chat.id);
+    expect(await prisma.chat.findUnique({ where: { id: chat.id } })).toBeNull();
+    expect(await prisma.chatMessage.count({ where: { chatId: chat.id } })).toBe(0);
   });
 });
