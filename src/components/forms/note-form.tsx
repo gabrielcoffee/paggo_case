@@ -39,7 +39,7 @@ export function NoteForm({
         rows={3}
       />
       {err && <p className="text-xs text-destructive">{err}</p>}
-      <Button type="submit" size="sm" disabled={pending || !body.trim()}>
+      <Button type="submit" size="sm" loading={pending} disabled={pending || !body.trim()}>
         Salvar nota
       </Button>
     </form>

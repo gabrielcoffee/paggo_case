@@ -38,7 +38,8 @@ export function PlanModal({
   function toggle(i: number) {
     setDropped((prev) => {
       const n = new Set(prev);
-      n.has(i) ? n.delete(i) : n.add(i);
+      if (n.has(i)) n.delete(i);
+      else n.add(i);
       return n;
     });
   }
@@ -98,6 +99,7 @@ export function PlanModal({
 
           <div className="flex gap-2">
             <Button
+              loading={pending}
               disabled={pending || kept.length === 0}
               onClick={() =>
                 start(async () => {
@@ -114,6 +116,7 @@ export function PlanModal({
             </Button>
             <Button
               variant="outline"
+              loading={pending}
               disabled={pending}
               onClick={() =>
                 start(async () => {

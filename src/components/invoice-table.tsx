@@ -24,6 +24,7 @@ import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { InvoiceSheet } from "@/components/invoice-sheet";
+import { prefetchDetail } from "@/lib/detail-cache";
 import { RISK_RULES } from "@/lib/risk-rules";
 import { PAGE_SIZE, type InvoiceRow, type ScopePreset } from "@/lib/queries/invoice-types";
 import { agingBucket, AGING_BUCKETS, AGING_LABELS, daysOverdue } from "@/lib/aging";
@@ -132,6 +133,7 @@ export function InvoiceTable({
     ...DEFAULT_WEIGHTS,
   }));
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [pendingScope, setPendingScope] = useState<ScopePreset | null>(null);
 
   const nq = normalizeText(q);
 
@@ -227,6 +229,7 @@ export function InvoiceTable({
 
   function changeScope(next: ScopePreset) {
     if (next === scope) return;
+    setPendingScope(next);
     startTransition(() => router.push(`/invoices?scope=${next}`));
   }
 
@@ -279,13 +282,17 @@ export function InvoiceTable({
               <button
                 key={s.value}
                 onClick={() => changeScope(s.value)}
+                disabled={pending}
                 className={cn(
-                  "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                  "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60",
                   scope === s.value
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-primary/5 hover:text-primary",
                 )}
               >
+                {pending && pendingScope === s.value && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
                 {s.label}
               </button>
             ))}
@@ -434,6 +441,7 @@ export function InvoiceTable({
                 <tr
                   key={inv.id}
                   onClick={() => setOpenRow(inv)}
+                  onMouseEnter={() => prefetchDetail(inv.id)}
                   className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5"
                 >
                   <td className="max-w-[220px]">

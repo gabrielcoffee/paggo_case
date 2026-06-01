@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Bot, User } from "lucide-react";
+import { Loader2, Send, Bot, User, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/agent/markdown";
@@ -32,6 +32,8 @@ export function AgentChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -66,13 +68,34 @@ export function AgentChat() {
   // Single, persistent conversation: load the most recent chat if one exists.
   useEffect(() => {
     (async () => {
-      const cs = await listChats();
-      if (cs.length) {
-        setActiveId(cs[0].id);
-        await loadMessages(cs[0].id);
+      try {
+        const cs = await listChats();
+        if (cs.length) {
+          setActiveId(cs[0].id);
+          await loadMessages(cs[0].id);
+        }
+      } finally {
+        setInitializing(false);
       }
     })();
   }, [loadMessages]);
+
+  async function newChat() {
+    if (creating || loading) return;
+    setCreating(true);
+    setError(null);
+    try {
+      const r = await createChat();
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setActiveId(r.chat.id);
+      setMessages([]);
+    } finally {
+      setCreating(false);
+    }
+  }
 
   function setPlanStatus(planId: string, status: string) {
     setMessages((msgs) =>
@@ -164,11 +187,27 @@ export function AgentChat() {
             Lê a carteira e propõe ações — toda mudança pede sua confirmação
           </p>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
+          onClick={newChat}
+          loading={creating}
+          disabled={loading}
+        >
+          <Plus className="h-4 w-4" /> Novo chat
+        </Button>
       </header>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto px-5 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          {messages.length === 0 && (
+          {initializing && (
+            <div className="flex justify-center pt-10 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          )}
+
+          {!initializing && messages.length === 0 && (
             <div className="space-y-3 pt-10 text-center">
               <p className="text-sm text-muted-foreground">Comece com:</p>
               <div className="flex flex-col items-center gap-2">
@@ -208,7 +247,7 @@ export function AgentChat() {
             className="h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring/40 focus:ring-2"
           />
           <Button type="submit" size="icon-lg" disabled={loading || !input.trim()}>
-            <Send className="h-4 w-4" />
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
       </footer>

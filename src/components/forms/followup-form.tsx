@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { scheduleFollowUp } from "@/lib/actions/invoices";
 
 const CHANNELS = [
@@ -52,12 +53,14 @@ export function FollowUpForm({
       className="space-y-2"
     >
       <div className="flex gap-2">
-        <input
-          type="datetime-local"
-          value={dueAt}
-          onChange={(e) => setDueAt(e.target.value)}
-          className={inputCls + " flex-1"}
-        />
+        <div className="flex-1">
+          <DatePicker
+            value={dueAt}
+            onChange={setDueAt}
+            withTime
+            placeholder="Data e hora"
+          />
+        </div>
         <select
           value={channel}
           onChange={(e) => setChannel(e.target.value)}
@@ -77,7 +80,7 @@ export function FollowUpForm({
         rows={2}
       />
       {err && <p className="text-xs text-destructive">{err}</p>}
-      <Button type="submit" size="sm" disabled={pending || !dueAt || !body.trim()}>
+      <Button type="submit" size="sm" loading={pending} disabled={pending || !dueAt || !body.trim()}>
         Agendar follow-up
       </Button>
     </form>

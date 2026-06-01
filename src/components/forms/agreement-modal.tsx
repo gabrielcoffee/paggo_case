@@ -8,30 +8,45 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { buildSchedule } from "@/lib/agreement";
 import { brl, date } from "@/lib/format";
-import { createPaymentAgreement } from "@/lib/actions/invoices";
+import { createPaymentAgreement, updateAgreement } from "@/lib/actions/invoices";
 
 const numInput =
   "h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm tabular-nums outline-none ring-ring/40 focus:ring-2";
+
+export type EditAgreement = {
+  id: string;
+  installments: number;
+  discountPct: number | null;
+  feePct: number | null;
+  firstDueDate: string;
+  intervalDays: number;
+};
 
 export function AgreementModal({
   invoiceId,
   openCents,
   onDone,
+  agreement,
+  trigger,
 }: {
   invoiceId: string;
   openCents: number;
   onDone: () => void;
+  agreement?: EditAgreement;
+  trigger?: React.ReactNode;
 }) {
+  const isEdit = !!agreement;
   const [open, setOpen] = useState(false);
-  const [installments, setInstallments] = useState(3);
-  const [discountPct, setDiscount] = useState(0);
-  const [feePct, setFee] = useState(0);
-  const [firstDueDate, setFirst] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+  const [installments, setInstallments] = useState(agreement?.installments ?? 3);
+  const [discountPct, setDiscount] = useState(agreement?.discountPct ?? 0);
+  const [feePct, setFee] = useState(agreement?.feePct ?? 0);
+  const [firstDueDate, setFirst] = useState(
+    agreement?.firstDueDate ?? new Date().toISOString().slice(0, 10),
   );
-  const [intervalDays, setInterval] = useState(30);
+  const [intervalDays, setInterval] = useState(agreement?.intervalDays ?? 30);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
@@ -50,13 +65,17 @@ export function AgreementModal({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        Criar acordo
-      </Button>
+      {trigger ? (
+        <span onClick={() => setOpen(true)}>{trigger}</span>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          Criar acordo
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Novo acordo de pagamento</DialogTitle>
+            <DialogTitle>{isEdit ? "Editar acordo" : "Novo acordo de pagamento"}</DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-3">
@@ -101,12 +120,7 @@ export function AgreementModal({
               />
             </Field>
             <Field label="1º vencimento" className="col-span-2">
-              <input
-                type="date"
-                value={firstDueDate}
-                onChange={(e) => setFirst(e.target.value)}
-                className={numInput}
-              />
+              <DatePicker value={firstDueDate} onChange={setFirst} />
             </Field>
           </div>
 
@@ -137,17 +151,27 @@ export function AgreementModal({
           {err && <p className="text-xs text-destructive">{err}</p>}
 
           <Button
+            loading={pending}
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const r = await createPaymentAgreement({
-                  invoiceId,
-                  installments,
-                  discountPct: discountPct || undefined,
-                  feePct: feePct || undefined,
-                  firstDueDate,
-                  intervalDays,
-                });
+                const r = isEdit
+                  ? await updateAgreement({
+                      agreementId: agreement.id,
+                      installments,
+                      discountPct: discountPct || undefined,
+                      feePct: feePct || undefined,
+                      firstDueDate,
+                      intervalDays,
+                    })
+                  : await createPaymentAgreement({
+                      invoiceId,
+                      installments,
+                      discountPct: discountPct || undefined,
+                      feePct: feePct || undefined,
+                      firstDueDate,
+                      intervalDays,
+                    });
                 if (!r.ok) setErr(r.error);
                 else {
                   setOpen(false);
@@ -156,7 +180,7 @@ export function AgreementModal({
               })
             }
           >
-            Confirmar acordo
+            {isEdit ? "Salvar acordo" : "Confirmar acordo"}
           </Button>
         </DialogContent>
       </Dialog>
