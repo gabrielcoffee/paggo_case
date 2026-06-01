@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Bot,
   Zap,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,10 +33,12 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
+  { href: "/invoices", label: "Faturas", icon: ReceiptText },
   {
-    href: "/invoices",
-    label: "Faturas",
-    icon: ReceiptText,
+    href: "tratativas-group",
+    label: "Tratativas",
+    icon: ClipboardList,
+    groupOnly: true,
     children: [
       { href: "/notes", label: "Notas", icon: MessageSquare },
       { href: "/followups", label: "Follow-ups", icon: Clock },
@@ -84,7 +87,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
           }
           const childActive = item.children.some((c) => isActive(c));
           const expanded = open[item.href] ?? childActive;
-          const active = isActive(item);
+          const active = item.groupOnly ? childActive : isActive(item);
           const Icon = item.icon;
           const toggle = () => setOpen((s) => ({ ...s, [item.href]: !expanded }));
           const headerCls = cn(
