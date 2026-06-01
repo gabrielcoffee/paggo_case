@@ -215,7 +215,7 @@ export function AutomationForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] overflow-auto sm:max-w-lg">
+      <DialogContent className="max-h-[88vh] overflow-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nova automação</DialogTitle>
         </DialogHeader>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -27,6 +27,13 @@ import { InvoiceSheet } from "@/components/invoice-sheet";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { InvoiceCreateModal } from "@/components/forms/invoice-create-modal";
 import { ReportDialog } from "@/components/report/report-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { RISK_RULES } from "@/lib/risk-rules";
 import { PAGE_SIZE, type InvoiceRow, type ScopePreset } from "@/lib/queries/invoice-types";
 import { agingBucket, AGING_BUCKETS, AGING_LABELS, daysOverdue } from "@/lib/aging";
@@ -554,68 +561,49 @@ export function InvoiceTable({
         onInvoiceChange={onInvoiceChange}
       />
 
-      {rulesOpen && (
-        <RiskRulesModal
-          weights={weights}
-          onChange={(key, val) => {
-            setWeights((w) => ({ ...w, [key]: val }));
-            setPage(1);
-          }}
-          onReset={() => {
-            setWeights({ ...DEFAULT_WEIGHTS });
-            setPage(1);
-          }}
-          maxScore={maxScore}
-          onClose={() => setRulesOpen(false)}
-        />
-      )}
+      <RiskRulesModal
+        open={rulesOpen}
+        onOpenChange={setRulesOpen}
+        weights={weights}
+        onChange={(key, val) => {
+          setWeights((w) => ({ ...w, [key]: val }));
+          setPage(1);
+        }}
+        onReset={() => {
+          setWeights({ ...DEFAULT_WEIGHTS });
+          setPage(1);
+        }}
+        maxScore={maxScore}
+      />
     </div>
   );
 }
 
 function RiskRulesModal({
+  open,
+  onOpenChange,
   weights,
   onChange,
   onReset,
   maxScore,
-  onClose,
 }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
   weights: Record<string, number>;
   onChange: (key: string, val: number) => void;
   onReset: () => void;
   maxScore: number;
-  onClose: () => void;
 }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
-        <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold">Regras de risco</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              O risco de cada fatura é a soma dos pontos das regras que ela aciona.
-              Ajuste o peso de cada regra (0–30).
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="gap-1 border-b border-border px-5 py-4">
+          <DialogTitle className="text-sm font-semibold">Regras de risco</DialogTitle>
+          <DialogDescription className="text-xs">
+            O risco de cada fatura é a soma dos pontos das regras que ela aciona. Ajuste o peso de
+            cada regra (0–30).
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="flex items-center justify-between border-b border-border px-5 py-2.5 text-xs">
           <span className="text-muted-foreground">Pontuação máxima (somatória)</span>
@@ -670,14 +658,14 @@ function RiskRulesModal({
             Restaurar padrão
           </button>
           <button
-            onClick={onClose}
+            onClick={() => onOpenChange(false)}
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
           >
             Concluir
           </button>
         </footer>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
