@@ -40,7 +40,10 @@ export function ArTrendLine({
             border: "1px solid var(--border)",
             borderRadius: 8,
             fontSize: 12,
+            color: "var(--popover-foreground)",
           }}
+          itemStyle={{ color: "var(--popover-foreground)" }}
+          labelStyle={{ color: "var(--popover-foreground)" }}
           formatter={(value, name) => [brl(Number(value)), name]}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />

@@ -54,3 +54,11 @@ export async function fetchCustomerDataset(): Promise<{
 
   return { rows: mapped, totalAll: mapped.length };
 }
+
+// Lightweight {id, name} list for the "nova fatura" customer picker.
+export async function fetchCustomerOptions(): Promise<{ id: string; name: string }[]> {
+  return prisma.customer.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}

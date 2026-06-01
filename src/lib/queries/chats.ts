@@ -23,14 +23,14 @@ export async function listChats(): Promise<ChatSummary[]> {
 }
 
 export async function createChat(
-  title = "Novo chat",
+  title = "Resetar chat",
 ): Promise<{ ok: true; chat: ChatSummary } | { ok: false; error: string }> {
   const userId = await uid();
   const count = await prisma.chat.count({ where: { userId } });
   if (count >= MAX_CHATS) {
     return { ok: false, error: `Limite de ${MAX_CHATS} chats. Exclua um para criar outro.` };
   }
-  const c = await prisma.chat.create({ data: { userId, title: title.slice(0, 80) || "Novo chat" } });
+  const c = await prisma.chat.create({ data: { userId, title: title.slice(0, 80) || "Resetar chat" } });
   return { ok: true, chat: { id: c.id, title: c.title, updatedAt: c.updatedAt.toISOString() } };
 }
 

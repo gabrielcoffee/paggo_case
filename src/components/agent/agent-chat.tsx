@@ -196,12 +196,12 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
           loading={creating}
           disabled={loading}
         >
-          <Plus className="h-4 w-4" /> Novo chat
+          <Plus className="h-4 w-4" /> Resetar chat
         </Button>
       </header>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto px-5 py-6">
-        <div className="mx-auto max-w-2xl space-y-4">
+        <div className="mx-auto max-w-3xl space-y-4">
           {initializing && (
             <div className="flex justify-center pt-10 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -245,11 +245,17 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
             e.preventDefault();
             send(input);
           }}
-          className="mx-auto flex max-w-2xl items-center gap-2"
+          className="mx-auto flex max-w-3xl items-center gap-2"
         >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
             placeholder="Pergunte ou peça uma ação…"
             className="h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring/40 focus:ring-2"
           />
@@ -275,7 +281,7 @@ function Bubble({
 }) {
   const isUser = msg.role === "user";
   return (
-    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+    <div className={cn("flex animate-in gap-3 fade-in slide-in-from-bottom-1 duration-300", isUser && "flex-row-reverse")}>
       <div
         className={cn(
           "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",

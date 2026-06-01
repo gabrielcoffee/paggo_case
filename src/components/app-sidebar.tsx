@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ReceiptText, Users, Sparkles, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -55,20 +56,27 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
           <br />
           01/04/2026 · carteira de 90 dias
         </div>
-        {userEmail && (
-          <form action="/auth/signout" method="post" className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
+          {userEmail && (
             <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={userEmail}>
               {userEmail}
             </span>
-            <button
-              type="submit"
-              className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-              aria-label="Sair"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Sair
-            </button>
-          </form>
-        )}
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <ThemeToggle />
+            {userEmail && (
+              <form action="/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                  aria-label="Sair"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sair
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
     </aside>
   );

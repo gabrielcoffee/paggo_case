@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -25,6 +25,7 @@ import { StatusChip, PaymentStatusDot } from "@/components/status-chip";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { InvoiceSheet } from "@/components/invoice-sheet";
 import { prefetchDetail } from "@/lib/detail-cache";
+import { InvoiceCreateModal } from "@/components/forms/invoice-create-modal";
 import { RISK_RULES } from "@/lib/risk-rules";
 import { PAGE_SIZE, type InvoiceRow, type ScopePreset } from "@/lib/queries/invoice-types";
 import { agingBucket, AGING_BUCKETS, AGING_LABELS, daysOverdue } from "@/lib/aging";
@@ -106,12 +107,14 @@ export function InvoiceTable({
   capped,
   totalAll,
   today,
+  customers,
 }: {
   rows: InvoiceRow[];
   scope: ScopePreset;
   capped: boolean;
   totalAll: number;
   today: string;
+  customers: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -134,6 +137,38 @@ export function InvoiceTable({
   }));
   const [rulesOpen, setRulesOpen] = useState(false);
   const [pendingScope, setPendingScope] = useState<ScopePreset | null>(null);
+  // Optimistic per-row patches: a mutation in the open sheet (e.g. status change)
+  // lands here instantly so the row behind updates without waiting on the DB or a
+  // server revalidate. Layered over the server rows; rolled back if the write fails.
+  const [overrides, setOverrides] = useState<Map<string, Partial<InvoiceRow>>>(new Map());
+
+  const onInvoiceChange = useCallback(
+    (rowId: string, patch: Partial<InvoiceRow>) => {
+      let prev: Partial<InvoiceRow> | undefined;
+      setOverrides((m) => {
+        const n = new Map(m);
+        prev = n.get(rowId);
+        n.set(rowId, { ...(prev ?? {}), ...patch });
+        return n;
+      });
+      return () =>
+        setOverrides((m) => {
+          const n = new Map(m);
+          if (prev === undefined) n.delete(rowId);
+          else n.set(rowId, prev);
+          return n;
+        });
+    },
+    [],
+  );
+
+  const effectiveRows = useMemo(
+    () =>
+      overrides.size === 0
+        ? rows
+        : rows.map((r) => (overrides.has(r.id) ? { ...r, ...overrides.get(r.id) } : r)),
+    [rows, overrides],
+  );
 
   const nq = normalizeText(q);
 
@@ -151,9 +186,9 @@ export function InvoiceTable({
   const scored = useMemo(
     () =>
       weightsDirty
-        ? rows.map((r) => ({ ...r, riskScore: liveScore(r.riskFactors, weights) }))
-        : rows,
-    [rows, weights, weightsDirty],
+        ? effectiveRows.map((r) => ({ ...r, riskScore: liveScore(r.riskFactors, weights) }))
+        : effectiveRows,
+    [effectiveRows, weights, weightsDirty],
   );
 
   // Lowering weights can drop the ceiling below a previously-set threshold; clamp
@@ -249,6 +284,7 @@ export function InvoiceTable({
           <p className="text-xs text-muted-foreground">Triagem por risco · carteira B2B</p>
         </div>
         <div className="flex items-center gap-3 text-right text-xs text-muted-foreground">
+          <InvoiceCreateModal customers={customers} />
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           <span>
             <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -412,7 +448,7 @@ export function InvoiceTable({
       </div>
 
       {/* Table */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto px-4">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-card text-xs text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
             <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium">
@@ -509,7 +545,12 @@ export function InvoiceTable({
         </div>
       </footer>
 
-      <InvoiceSheet row={openRow} today={today} onClose={() => setOpenRow(null)} />
+      <InvoiceSheet
+        row={openRow}
+        today={today}
+        onClose={() => setOpenRow(null)}
+        onInvoiceChange={onInvoiceChange}
+      />
 
       {rulesOpen && (
         <RiskRulesModal

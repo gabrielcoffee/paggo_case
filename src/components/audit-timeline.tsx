@@ -5,8 +5,12 @@ import type { DetailAudit } from "@/lib/actions/invoice-detail";
 const ACTION_LABELS: Record<string, string> = {
   status_change: "Mudança de status",
   note_added: "Nota adicionada",
+  note_updated: "Nota atualizada",
+  note_deleted: "Nota excluída",
   followup_scheduled: "Follow-up agendado",
   agreement_created: "Acordo criado",
+  agreement_updated: "Acordo atualizado",
+  agreement_deleted: "Acordo excluído",
 };
 
 function summarize(e: DetailAudit): string | null {

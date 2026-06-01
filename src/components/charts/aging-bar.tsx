@@ -55,7 +55,10 @@ export function AgingBar({
             border: "1px solid var(--border)",
             borderRadius: 8,
             fontSize: 12,
+            color: "var(--popover-foreground)",
           }}
+          itemStyle={{ color: "var(--popover-foreground)" }}
+          labelStyle={{ color: "var(--popover-foreground)" }}
           formatter={(value) => [brl(Number(value)), "Em aberto"]}
         />
         <Bar dataKey="open" radius={[4, 4, 0, 0]}>

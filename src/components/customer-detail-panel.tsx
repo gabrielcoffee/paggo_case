@@ -14,6 +14,14 @@ import {
   invalidateCustomer,
 } from "@/lib/customer-detail-cache";
 import { type CustomerDetail } from "@/lib/actions/customer-detail";
+import type { CustomerRow } from "@/lib/queries/customer-types";
+import type {
+  DetailNote,
+  DetailFollowUp,
+  DetailAudit,
+} from "@/lib/actions/invoice-detail";
+import { addNote, scheduleFollowUp } from "@/lib/actions/invoices";
+import { useMutation } from "@/lib/use-mutation";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { brl, date, dateTime } from "@/lib/format";
 import { daysOverdue } from "@/lib/aging";
@@ -25,22 +33,58 @@ const CHANNEL_LABELS: Record<string, string> = {
   whatsapp: "WhatsApp",
 };
 
+// Instant stub from the list row: the Visão tab (aggregates) renders immediately
+// while invoices/notes/follow-ups/audit load in the background.
+function stubFromRow(r: CustomerRow): CustomerDetail {
+  return {
+    id: r.id,
+    name: r.name,
+    segment: r.segment,
+    creditLimit: r.creditLimit,
+    createdAt: "",
+    openAr: r.openAr,
+    overdueAr: r.overdueAr,
+    invoiceCount: r.invoiceCount,
+    overdueCount: r.overdueCount,
+    maxRisk: r.maxRisk,
+    invoices: [],
+    notes: [],
+    auditEvents: [],
+    followUps: [],
+  };
+}
+
 // Customer detail body (no slide-over wrapper). Reused by CustomerSheet and the
 // agent workspace split panel. Clicking one of the customer's invoices calls
 // onOpenInvoice so the parent can open the invoice detail.
+// Synthetic audit event for instant (optimistic) Audit-tab updates.
+function tmpAudit(action: string, payload: unknown): DetailAudit {
+  return {
+    id: `tmp-${crypto.randomUUID()}`,
+    action,
+    origin: "analyst",
+    actor: "analyst",
+    payload,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 export function CustomerDetailPanel({
   id,
+  initialRow,
   today,
   onClose,
   onOpenInvoice,
 }: {
   id: string;
+  initialRow?: CustomerRow;
   today: string;
   onClose: () => void;
   onOpenInvoice: (invoiceId: string) => void;
 }) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [, startLoad] = useTransition();
+  const { run } = useMutation();
 
   const load = useCallback((custId: string) => {
     startLoad(async () => {
@@ -53,12 +97,72 @@ export function CustomerDetailPanel({
     load(id);
   }, [id, load]);
 
-  const refresh = useCallback(() => {
+  // Silent reconcile after a write lands OK (no blank: detail stays set).
+  const reconcile = useCallback(() => {
     invalidateCustomer(id);
-    load(id);
-  }, [id, load]);
+    getCustomer(id).then((d) => {
+      if (d) setDetail(d);
+    });
+  }, [id]);
 
-  const view = detail && detail.id === id ? detail : null;
+  const applyPatch = (updater: (d: CustomerDetail) => CustomerDetail) => {
+    const snapshot = detail;
+    setDetail((d) => (d ? updater(d) : d));
+    return () => setDetail(snapshot);
+  };
+
+  // Optimistic note/follow-up handlers for this customer (entityType "customer").
+  const onAddNote = (body: string) => {
+    const temp: DetailNote = {
+      id: `tmp-${crypto.randomUUID()}`,
+      author: "analyst",
+      body,
+      createdAt: new Date().toISOString(),
+    };
+    run(
+      () =>
+        applyPatch((d) => ({
+          ...d,
+          notes: [temp, ...d.notes],
+          auditEvents: [tmpAudit("note_added", { noteId: temp.id }), ...d.auditEvents],
+        })),
+      () => addNote({ entityType: "customer", entityId: id, body }),
+      { onSuccess: reconcile, successMessage: "Nota adicionada" },
+    );
+  };
+
+  const onAddFollowUp = (input: { dueAt: string; channel: "phone" | "email" | "whatsapp"; body: string }) => {
+    const temp: DetailFollowUp = {
+      id: `tmp-${crypto.randomUUID()}`,
+      dueAt: input.dueAt,
+      channel: input.channel,
+      status: "pending",
+      body: input.body,
+      assignee: null,
+      createdBy: "analyst",
+    };
+    run(
+      () =>
+        applyPatch((d) => ({
+          ...d,
+          followUps: [...d.followUps, temp].sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
+          auditEvents: [tmpAudit("followup_scheduled", { channel: input.channel }), ...d.auditEvents],
+        })),
+      () =>
+        scheduleFollowUp({
+          entityType: "customer",
+          entityId: id,
+          dueAt: input.dueAt,
+          channel: input.channel,
+          body: input.body,
+        }),
+      { onSuccess: reconcile, successMessage: "Follow-up agendado" },
+    );
+  };
+
+  const fresh = detail && detail.id === id ? detail : null;
+  const view = fresh ?? (initialRow ? stubFromRow(initialRow) : null);
+  const extrasLoading = !fresh;
   const todayDate = new Date(today);
 
   return (
@@ -131,11 +235,18 @@ export function CustomerDetailPanel({
                   )}
                 </div>
                 <Field label="Segmento" value={SEGMENT_LABELS[view.segment] ?? view.segment} />
-                <Field label="Cliente desde" value={date(view.createdAt)} mono />
+                <Field
+                  label="Cliente desde"
+                  value={view.createdAt ? date(view.createdAt) : "—"}
+                  mono
+                />
               </div>
             </TabsContent>
 
             <TabsContent value="invoices">
+              {extrasLoading ? (
+                <p className="text-sm text-muted-foreground">Carregando…</p>
+              ) : (
               <ul className="space-y-2">
                 {view.invoices.map((inv) => {
                   const od = daysOverdue(new Date(inv.dueDate), todayDate);
@@ -166,17 +277,25 @@ export function CustomerDetailPanel({
                   <li className="text-sm text-muted-foreground">Sem faturas.</li>
                 )}
               </ul>
+              )}
             </TabsContent>
 
             <TabsContent value="notes">
               <div className="space-y-4">
-                <NoteForm entityId={view.id} entityType="customer" onDone={refresh} />
-                <NoteList notes={view.notes} onDone={refresh} />
+                <NoteForm onAdd={onAddNote} />
+                {extrasLoading ? (
+                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                ) : (
+                  <NoteList notes={view.notes} />
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="followups">
               <div className="space-y-3">
+                {extrasLoading ? (
+                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                ) : (
                 <ul className="space-y-2">
                   {view.followUps.map((f) => (
                     <li
@@ -193,12 +312,17 @@ export function CustomerDetailPanel({
                     <li className="text-sm text-muted-foreground">Nenhum follow-up.</li>
                   )}
                 </ul>
-                <FollowUpForm entityId={view.id} entityType="customer" onDone={refresh} />
+                )}
+                <FollowUpForm onAdd={onAddFollowUp} />
               </div>
             </TabsContent>
 
             <TabsContent value="audit">
-              <AuditTimeline events={view.auditEvents} />
+              {extrasLoading ? (
+                <p className="text-sm text-muted-foreground">Carregando…</p>
+              ) : (
+                <AuditTimeline events={view.auditEvents} />
+              )}
             </TabsContent>
           </div>
         </Tabs>

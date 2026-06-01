@@ -8,10 +8,12 @@ export function InvoiceSheet({
   row,
   today,
   onClose,
+  onInvoiceChange,
 }: {
   row: InvoiceRow | null;
   today: string;
   onClose: () => void;
+  onInvoiceChange?: (id: string, patch: Partial<InvoiceRow>) => () => void;
 }) {
   return (
     <Sheet open={row != null} onClose={onClose}>
@@ -22,6 +24,7 @@ export function InvoiceSheet({
           initialRow={row}
           today={today}
           onClose={onClose}
+          onInvoiceChange={onInvoiceChange}
         />
       )}
     </Sheet>

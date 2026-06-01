@@ -18,6 +18,10 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+const selectCls =
+  "h-8 rounded-md border border-input bg-background px-2 text-sm outline-none ring-ring/40 focus:ring-2";
 
 function parseValue(value: string, withTime: boolean): Date | null {
   if (!value) return null;
@@ -25,9 +29,9 @@ function parseValue(value: string, withTime: boolean): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-// Lightweight calendar picker (no extra deps) used instead of the native, ugly
-// date inputs. `withTime` adds a time field and emits `yyyy-MM-ddTHH:mm`; date-only
-// emits `yyyy-MM-dd`.
+// Lightweight calendar picker (no extra deps). `withTime` adds hour/minute selects
+// and emits `yyyy-MM-ddTHH:mm`; date-only emits `yyyy-MM-dd`. The popover flips
+// above the trigger when there isn't room below.
 export function DatePicker({
   value,
   onChange,
@@ -42,7 +46,9 @@ export function DatePicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = parseValue(value, withTime);
   const [month, setMonth] = useState<Date>(selected ?? new Date());
 
@@ -54,7 +60,18 @@ export function DatePicker({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  function toggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const needed = withTime ? 380 : 330;
+      setDropUp(window.innerHeight - rect.bottom < needed && rect.top > needed);
+    }
+    setOpen((o) => !o);
+  }
+
   const time = selected ? format(selected, "HH:mm") : "09:00";
+  const [hh, mm] = time.split(":");
+  const minuteOpts = MINUTES.includes(mm) ? MINUTES : [...MINUTES, mm].sort();
 
   function pickDay(day: Date) {
     if (withTime) {
@@ -68,11 +85,10 @@ export function DatePicker({
     }
   }
 
-  function changeTime(t: string) {
-    const base = selected ?? new Date();
-    const [h, m] = t.split(":").map(Number);
+  function setTimePart(h: string, m: string) {
+    const base = selected ?? new Date(new Date().setHours(9, 0, 0, 0));
     const next = new Date(base);
-    next.setHours(h || 0, m || 0, 0, 0);
+    next.setHours(Number(h), Number(m), 0, 0);
     onChange(format(next, "yyyy-MM-dd'T'HH:mm"));
   }
 
@@ -87,8 +103,9 @@ export function DatePicker({
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className={cn(
           "flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm outline-none ring-ring/40 focus:ring-2",
           !selected && "text-muted-foreground",
@@ -100,7 +117,12 @@ export function DatePicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-border bg-popover p-3 shadow-lg">
+        <div
+          className={cn(
+            "absolute left-0 z-30 w-64 rounded-lg border border-border bg-popover p-3 shadow-lg",
+            dropUp ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
@@ -155,16 +177,35 @@ export function DatePicker({
           {withTime && (
             <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
               <span className="text-xs text-muted-foreground">Hora</span>
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => changeTime(e.target.value)}
-                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none ring-ring/40 focus:ring-2"
-              />
+              <select
+                value={hh}
+                onChange={(e) => setTimePart(e.target.value, mm)}
+                className={selectCls}
+                aria-label="Hora"
+              >
+                {HOURS.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+              <span className="text-muted-foreground">:</span>
+              <select
+                value={mm}
+                onChange={(e) => setTimePart(hh, e.target.value)}
+                className={selectCls}
+                aria-label="Minuto"
+              >
+                {minuteOpts.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground"
+                className="ml-auto rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground"
               >
                 OK
               </button>

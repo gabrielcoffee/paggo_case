@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, X } from "lucide-react";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { CustomerCreateModal } from "@/components/forms/customer-create-modal";
 import { CustomerSheet } from "@/components/customer-sheet";
 import { Sheet } from "@/components/ui/sheet";
 import { InvoiceDetailPanel } from "@/components/invoice-detail-panel";
@@ -33,7 +34,7 @@ export function CustomerTable({
   const [sort, setSort] = useState<SortField>("overdueAr");
   const [dir, setDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [openCustomer, setOpenCustomer] = useState<string | null>(null);
+  const [openCustomer, setOpenCustomer] = useState<CustomerRow | null>(null);
   const [openInvoice, setOpenInvoice] = useState<string | null>(null);
 
   const nq = normalizeText(q);
@@ -89,12 +90,15 @@ export function CustomerTable({
           <h1 className="text-base font-semibold">Clientes</h1>
           <p className="text-xs text-muted-foreground">Carteira B2B · {totalAll} clientes</p>
         </div>
-        <span className="text-xs text-muted-foreground">
-          <span className="font-mono font-semibold tabular-nums text-foreground">
-            {total.toLocaleString("pt-BR")}
-          </span>{" "}
-          no filtro atual
-        </span>
+        <div className="flex items-center gap-3">
+          <CustomerCreateModal />
+          <span className="text-xs text-muted-foreground">
+            <span className="font-mono font-semibold tabular-nums text-foreground">
+              {total.toLocaleString("pt-BR")}
+            </span>{" "}
+            no filtro atual
+          </span>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
@@ -136,7 +140,7 @@ export function CustomerTable({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto px-4">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-card text-xs text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
             <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium">
@@ -160,7 +164,7 @@ export function CustomerTable({
             {pageRows.map((c) => (
               <tr
                 key={c.id}
-                onClick={() => setOpenCustomer(c.id)}
+                onClick={() => setOpenCustomer(c)}
                 onMouseEnter={() => prefetchCustomer(c.id)}
                 className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5"
               >
@@ -213,7 +217,7 @@ export function CustomerTable({
       </footer>
 
       <CustomerSheet
-        customerId={openCustomer}
+        customer={openCustomer}
         today={today}
         onClose={() => setOpenCustomer(null)}
         onOpenInvoice={(invId) => {

@@ -21,6 +21,10 @@ function fail(error: string): ActionResult {
   return { ok: false, error };
 }
 
+// Refresh the list + dashboard in the background. Only writes that change a
+// portfolio-visible field (status, payment, agreement) call this — notes and
+// follow-ups don't move any aggregate, so they skip the heavy re-render. The UI
+// already updated optimistically; this just keeps other views eventually consistent.
 function revalidate() {
   revalidatePath("/invoices");
   revalidatePath("/");
@@ -125,7 +129,6 @@ export async function addNote(
     });
   });
 
-  revalidate();
   return { ok: true };
 }
 
@@ -174,7 +177,6 @@ export async function scheduleFollowUp(
     });
   });
 
-  revalidate();
   return { ok: true };
 }
 
@@ -295,7 +297,6 @@ export async function updateNote(
     });
   });
 
-  revalidate();
   return { ok: true };
 }
 
@@ -319,7 +320,6 @@ export async function deleteNote(
     });
   });
 
-  revalidate();
   return { ok: true };
 }
 

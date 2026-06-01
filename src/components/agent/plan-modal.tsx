@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { Check, X, Undo2, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { describeStep, type PlanStep } from "@/lib/agent/plan-steps";
 import { confirmPlan, rejectPlan } from "@/lib/actions/agent-plan";
+import { useMutation } from "@/lib/use-mutation";
 
 export type PlanData = { id: string; summary: string; steps: PlanStep[]; status: string };
 
@@ -26,8 +27,7 @@ export function PlanModal({
 }) {
   const [open, setOpen] = useState(false);
   const [dropped, setDropped] = useState<Set<number>>(new Set());
-  const [pending, start] = useTransition();
-  const [err, setErr] = useState<string | null>(null);
+  const { run } = useMutation();
 
   const kept = useMemo(
     () => plan.steps.map((_, i) => i).filter((i) => !dropped.has(i)),
@@ -95,37 +95,34 @@ export function PlanModal({
             })}
           </ul>
 
-          {err && <p className="text-xs text-destructive">{err}</p>}
-
           <div className="flex gap-2">
             <Button
-              loading={pending}
-              disabled={pending || kept.length === 0}
-              onClick={() =>
-                start(async () => {
-                  setErr(null);
-                  const r = await confirmPlan(plan.id, kept);
-                  if (r.ok) {
-                    setOpen(false);
+              disabled={kept.length === 0}
+              onClick={() => {
+                const keptNow = kept;
+                run(
+                  () => {
                     onStatus(plan.id, "executed");
-                  } else setErr(r.error);
-                })
-              }
+                    setOpen(false);
+                    return () => onStatus(plan.id, "pending");
+                  },
+                  () => confirmPlan(plan.id, keptNow),
+                );
+              }}
             >
               <Check className="h-3.5 w-3.5" /> Confirmar ({kept.length} de {plan.steps.length})
             </Button>
             <Button
               variant="outline"
-              loading={pending}
-              disabled={pending}
               onClick={() =>
-                start(async () => {
-                  const r = await rejectPlan(plan.id);
-                  if (r.ok) {
-                    setOpen(false);
+                run(
+                  () => {
                     onStatus(plan.id, "rejected");
-                  } else setErr(r.error);
-                })
+                    setOpen(false);
+                    return () => onStatus(plan.id, "pending");
+                  },
+                  () => rejectPlan(plan.id),
+                )
               }
             >
               Rejeitar tudo

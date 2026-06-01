@@ -22,7 +22,9 @@ export function TopRiskChart({
         />
         <Tooltip
           cursor={{ fill: "var(--accent)", opacity: 0.4 }}
-          contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, color: "var(--popover-foreground)" }}
+          itemStyle={{ color: "var(--popover-foreground)" }}
+          labelStyle={{ color: "var(--popover-foreground)" }}
           formatter={(v) => [`risco ${Number(v)}`, ""]}
         />
         <Bar dataKey="risco" fill="var(--primary)" radius={[0, 4, 4, 0]} />

@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { scheduleFollowUp } from "@/lib/actions/invoices";
+
+export type FollowUpInput = {
+  dueAt: string;
+  channel: "phone" | "email" | "whatsapp";
+  body: string;
+};
 
 const CHANNELS = [
   { value: "phone", label: "Telefone" },
@@ -15,42 +20,25 @@ const CHANNELS = [
 const inputCls =
   "h-8 rounded-md border border-input bg-background px-2.5 text-sm outline-none ring-ring/40 focus:ring-2";
 
-export function FollowUpForm({
-  entityId,
-  entityType = "invoice",
-  onDone,
-}: {
-  entityId: string;
-  entityType?: "invoice" | "customer";
-  onDone: () => void;
-}) {
+// Dumb input: emits the follow-up to the parent (optimistic + background write).
+export function FollowUpForm({ onAdd }: { onAdd: (input: FollowUpInput) => void }) {
   const [dueAt, setDueAt] = useState("");
   const [channel, setChannel] = useState("phone");
   const [body, setBody] = useState("");
-  const [pending, start] = useTransition();
-  const [err, setErr] = useState<string | null>(null);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        const iso = dueAt ? new Date(dueAt).toISOString() : "";
-        start(async () => {
-          const r = await scheduleFollowUp({
-            entityType,
-            entityId,
-            dueAt: iso,
-            channel: channel as "phone" | "email" | "whatsapp",
-            body,
-          });
-          if (!r.ok) setErr(r.error);
-          else {
-            setDueAt("");
-            setBody("");
-            setErr(null);
-            onDone();
-          }
+        const trimmed = body.trim();
+        if (!dueAt || !trimmed) return;
+        onAdd({
+          dueAt: new Date(dueAt).toISOString(),
+          channel: channel as FollowUpInput["channel"],
+          body: trimmed,
         });
+        setDueAt("");
+        setBody("");
       }}
       className="space-y-2"
     >
@@ -81,8 +69,7 @@ export function FollowUpForm({
         placeholder="Objetivo do follow-up…"
         rows={2}
       />
-      {err && <p className="text-xs text-destructive">{err}</p>}
-      <Button type="submit" size="sm" loading={pending} disabled={pending || !dueAt || !body.trim()}>
+      <Button type="submit" size="sm" disabled={!dueAt || !body.trim()}>
         Agendar follow-up
       </Button>
     </form>

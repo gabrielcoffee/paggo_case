@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { buildSchedule } from "@/lib/agreement";
 import { brl, date } from "@/lib/format";
-import { createPaymentAgreement, updateAgreement } from "@/lib/actions/invoices";
 
 const numInput =
   "h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm tabular-nums outline-none ring-ring/40 focus:ring-2";
@@ -25,16 +24,25 @@ export type EditAgreement = {
   intervalDays: number;
 };
 
+export type AgreementInput = {
+  installments: number;
+  discountPct?: number;
+  feePct?: number;
+  firstDueDate: string;
+  intervalDays: number;
+};
+
+// Dumb modal: builds the schedule preview locally and emits the chosen terms to
+// the parent, which applies them optimistically and writes in the background.
+// Closes instantly on submit — never waits on the DB.
 export function AgreementModal({
-  invoiceId,
   openCents,
-  onDone,
+  onSubmit,
   agreement,
   trigger,
 }: {
-  invoiceId: string;
   openCents: number;
-  onDone: () => void;
+  onSubmit: (input: AgreementInput) => void;
   agreement?: EditAgreement;
   trigger?: React.ReactNode;
 }) {
@@ -47,8 +55,6 @@ export function AgreementModal({
     agreement?.firstDueDate ?? new Date().toISOString().slice(0, 10),
   );
   const [intervalDays, setInterval] = useState(agreement?.intervalDays ?? 30);
-  const [pending, start] = useTransition();
-  const [err, setErr] = useState<string | null>(null);
 
   const schedule = useMemo(
     () =>
@@ -148,37 +154,17 @@ export function AgreementModal({
             </ul>
           </div>
 
-          {err && <p className="text-xs text-destructive">{err}</p>}
-
           <Button
-            loading={pending}
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                const r = isEdit
-                  ? await updateAgreement({
-                      agreementId: agreement.id,
-                      installments,
-                      discountPct: discountPct || undefined,
-                      feePct: feePct || undefined,
-                      firstDueDate,
-                      intervalDays,
-                    })
-                  : await createPaymentAgreement({
-                      invoiceId,
-                      installments,
-                      discountPct: discountPct || undefined,
-                      feePct: feePct || undefined,
-                      firstDueDate,
-                      intervalDays,
-                    });
-                if (!r.ok) setErr(r.error);
-                else {
-                  setOpen(false);
-                  onDone();
-                }
-              })
-            }
+            onClick={() => {
+              onSubmit({
+                installments,
+                discountPct: discountPct || undefined,
+                feePct: feePct || undefined,
+                firstDueDate,
+                intervalDays,
+              });
+              setOpen(false);
+            }}
           >
             {isEdit ? "Salvar acordo" : "Confirmar acordo"}
           </Button>

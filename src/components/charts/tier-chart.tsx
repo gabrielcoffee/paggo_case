@@ -22,7 +22,9 @@ export function TierChart({
         <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={36} />
         <Tooltip
           cursor={{ fill: "var(--accent)", opacity: 0.4 }}
-          contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, color: "var(--popover-foreground)" }}
+          itemStyle={{ color: "var(--popover-foreground)" }}
+          labelStyle={{ color: "var(--popover-foreground)" }}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
           {chart.map((d) => (

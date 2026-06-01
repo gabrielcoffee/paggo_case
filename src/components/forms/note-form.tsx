@@ -1,36 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { addNote } from "@/lib/actions/invoices";
 
-export function NoteForm({
-  entityId,
-  entityType = "invoice",
-  onDone,
-}: {
-  entityId: string;
-  entityType?: "invoice" | "customer";
-  onDone: () => void;
-}) {
+// Dumb input: emits the note body to the parent, which applies it optimistically
+// and fires the write in the background. Clears instantly — never waits on the DB.
+export function NoteForm({ onAdd }: { onAdd: (body: string) => void }) {
   const [body, setBody] = useState("");
-  const [pending, start] = useTransition();
-  const [err, setErr] = useState<string | null>(null);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        start(async () => {
-          const r = await addNote({ entityType, entityId, body });
-          if (!r.ok) setErr(r.error);
-          else {
-            setBody("");
-            setErr(null);
-            onDone();
-          }
-        });
+        const trimmed = body.trim();
+        if (!trimmed) return;
+        onAdd(trimmed);
+        setBody("");
       }}
       className="space-y-2"
     >
@@ -40,8 +26,7 @@ export function NoteForm({
         placeholder="Adicionar nota…"
         rows={3}
       />
-      {err && <p className="text-xs text-destructive">{err}</p>}
-      <Button type="submit" size="sm" loading={pending} disabled={pending || !body.trim()}>
+      <Button type="submit" size="sm" disabled={!body.trim()}>
         Salvar nota
       </Button>
     </form>

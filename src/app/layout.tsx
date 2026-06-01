@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
 import { getUser } from "@/lib/supabase/server";
 
 const sans = Hanken_Grotesk({
@@ -28,17 +30,21 @@ export default async function RootLayout({
   return (
     <html
       lang="pt-BR"
+      suppressHydrationWarning
       className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        {user ? (
-          <div className="flex min-h-screen">
-            <AppSidebar userEmail={user.email ?? ""} />
-            <main className="min-w-0 flex-1">{children}</main>
-          </div>
-        ) : (
-          children
-        )}
+        <ThemeProvider>
+          {user ? (
+            <div className="flex min-h-screen">
+              <AppSidebar userEmail={user.email ?? ""} />
+              <main className="min-w-0 flex-1">{children}</main>
+            </div>
+          ) : (
+            children
+          )}
+          <Toaster richColors position="bottom-center" duration={3200} offset={24} />
+        </ThemeProvider>
       </body>
     </html>
   );
