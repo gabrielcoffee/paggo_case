@@ -27,9 +27,10 @@ type Props =
   | { kind: "followups"; title: string; rows: ActivityFollowUp[]; today: string }
   | { kind: "agreements"; title: string; rows: ActivityAgreement[]; today: string };
 
-const thCls = "[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium";
+const thCls =
+  "[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium [&>th:first-child]:pl-5! [&>th:last-child]:pr-5!";
 const rowCls =
-  "cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5";
+  "cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!";
 
 export function ActivityList(props: Props) {
   const { title, today } = props;
@@ -57,7 +58,7 @@ export function ActivityList(props: Props) {
         </span>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto px-4">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-card text-xs text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
             {props.kind === "notes" && (

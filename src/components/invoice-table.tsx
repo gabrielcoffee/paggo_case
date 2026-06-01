@@ -448,10 +448,10 @@ export function InvoiceTable({
       </div>
 
       {/* Table */}
-      <div className="min-h-0 flex-1 overflow-auto px-4">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-card text-xs text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
-            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium">
+            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium [&>th:first-child]:pl-5! [&>th:last-child]:pr-5!">
               <th>
                 <SortHeader label="Cliente" field="customer" sort={sort} dir={dir} onSort={sortBy} />
               </th>
@@ -478,7 +478,7 @@ export function InvoiceTable({
                   key={inv.id}
                   onClick={() => setOpenRow(inv)}
                   onMouseEnter={() => prefetchDetail(inv.id)}
-                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5"
+                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!"
                 >
                   <td className="max-w-[220px]">
                     <span
