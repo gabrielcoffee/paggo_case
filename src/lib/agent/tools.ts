@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { appToday } from "@/lib/risk";
 import { daysOverdue } from "@/lib/aging";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
 import { fetchInvoiceDetail } from "@/lib/actions/invoice-detail";
 import { fetchDashboard } from "@/lib/queries/dashboard";
 import { planStepsSchema, describeStep } from "@/lib/agent/plan-steps";
@@ -73,6 +81,39 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "listAgreements",
+    description:
+      "Lista os acordos de pagamento da carteira (mais recentes primeiro): fatura, cliente, nº de parcelas, total, desconto/juros e data. Use para 'quais acordos temos'.",
+    input_schema: {
+      type: "object",
+      properties: { limit: { type: "number", description: "Quantos acordos (padrão 25)" } },
+    },
+  },
+  {
+    name: "listFollowUps",
+    description:
+      "Lista follow-ups por período. period: 'today' | 'week' | 'month' | 'overdue' (vencidos pendentes) | 'all'. Pode filtrar por status (pending/done/...).",
+    input_schema: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["today", "week", "month", "overdue", "all"] },
+        status: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "listNotes",
+    description:
+      "Lista notas por período (data de criação). period: 'today' | 'week' | 'month' | 'all'. Retorna autor, texto e a entidade (fatura/cliente).",
+    input_schema: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["today", "week", "month", "all"] },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
     name: "showChart",
     description:
       "Mostra um gráfico na resposta. type: 'aging' (R$ em aberto por faixa), 'ar_trend' (faturado×recebido por mês), 'risk_tiers' (faturas por tier de risco), 'top_risk' (top-N faturas por risco).",
@@ -124,6 +165,12 @@ export async function runTool(
         return { content: await getPortfolioStats() };
       case "searchCustomers":
         return await searchCustomers(input);
+      case "listAgreements":
+        return await listAgreements(input);
+      case "listFollowUps":
+        return { content: await listFollowUps(input) };
+      case "listNotes":
+        return { content: await listNotes(input) };
       case "showChart":
         return await showChart(input);
       case "proposeActions":
@@ -289,6 +336,112 @@ async function getPortfolioStats(): Promise<string> {
     dsoRealizado: d.dso.realized, dsoAtual: d.dso.current,
     tiers: d.tiers, status: d.statusCounts,
   });
+}
+
+function periodRange(period: string, today: Date): { gte: Date; lte: Date } | null {
+  if (period === "today") return { gte: startOfDay(today), lte: endOfDay(today) };
+  if (period === "week")
+    return {
+      gte: startOfWeek(today, { weekStartsOn: 1 }),
+      lte: endOfWeek(today, { weekStartsOn: 1 }),
+    };
+  if (period === "month") return { gte: startOfMonth(today), lte: endOfMonth(today) };
+  return null;
+}
+
+async function listAgreements(input: Record<string, unknown>): Promise<ToolOutcome> {
+  const limit = Math.min(Number(input.limit) || 25, 50);
+  const ags = await prisma.paymentAgreement.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      installmentRows: { select: { amount: true } },
+      originalInvoice: {
+        select: {
+          id: true,
+          amount: true,
+          amountPaid: true,
+          riskScore: true,
+          status: true,
+          customer: { select: { name: true, segment: true } },
+        },
+      },
+    },
+  });
+  const acordos = ags.map((a) => ({
+    id: a.id,
+    fatura: a.originalInvoiceId,
+    cliente: a.originalInvoice.customer.name,
+    parcelas: a.installments,
+    total: a.installmentRows.reduce((s, r) => s + Number(r.amount), 0),
+    desconto: a.discountPct != null ? Number(a.discountPct) : null,
+    juros: a.feePct != null ? Number(a.feePct) : null,
+    criadoEm: a.createdAt.toISOString(),
+  }));
+  const invoices = ags.map((a) => ({
+    id: a.originalInvoice.id,
+    cliente: a.originalInvoice.customer.name,
+    seg: a.originalInvoice.customer.segment,
+    open: Number(a.originalInvoice.amount) - Number(a.originalInvoice.amountPaid),
+    risco: a.originalInvoice.riskScore,
+    status: a.originalInvoice.status,
+  }));
+  return {
+    content: JSON.stringify({ total: acordos.length, acordos }),
+    chart: { type: "invoice_list", data: invoices },
+  };
+}
+
+async function listFollowUps(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const period = String(input.period ?? "all");
+  const where: Prisma.FollowUpWhereInput = {};
+  if (period === "overdue") {
+    where.dueAt = { lt: startOfDay(today) };
+    where.status = "pending";
+  } else {
+    const range = periodRange(period, today);
+    if (range) where.dueAt = { gte: range.gte, lte: range.lte };
+  }
+  if (typeof input.status === "string") where.status = input.status as never;
+  const rows = await prisma.followUp.findMany({
+    where,
+    orderBy: { dueAt: "asc" },
+    take: 60,
+  });
+  const followups = rows.map((f) => ({
+    id: f.id,
+    tipo: f.entityType,
+    ref: f.entityId,
+    vencimento: f.dueAt.toISOString(),
+    canal: f.channel,
+    status: f.status,
+    descricao: f.body,
+  }));
+  return JSON.stringify({ total: followups.length, periodo: period, followups });
+}
+
+async function listNotes(input: Record<string, unknown>): Promise<string> {
+  const today = appToday();
+  const period = String(input.period ?? "all");
+  const range = periodRange(period, today);
+  const where: Prisma.NoteWhereInput = {};
+  if (range) where.createdAt = { gte: range.gte, lte: range.lte };
+  const limit = Math.min(Number(input.limit) || 30, 60);
+  const rows = await prisma.note.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  const notas = rows.map((n) => ({
+    id: n.id,
+    tipo: n.entityType,
+    ref: n.entityId,
+    autor: n.author,
+    texto: n.body,
+    criadoEm: n.createdAt.toISOString(),
+  }));
+  return JSON.stringify({ total: notas.length, periodo: period, notas });
 }
 
 const CHART_LABELS: Record<string, string> = {
