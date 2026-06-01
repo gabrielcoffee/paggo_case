@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SEGMENT_LABELS, STATUS_LABELS } from "@/lib/invoice-status";
 import type { InvoiceStatus } from "@/generated/prisma/enums";
-import { AGING_BUCKETS, AGING_LABELS } from "@/lib/aging";
+import { brl } from "@/lib/format";
 import { CHANNELS, STATUS_TARGETS, templateVars } from "@/lib/automation/automation-spec";
 import { PRESET_LABELS, REPORT_PRESETS, type ReportPreset } from "@/lib/report/report-config";
 import { createAutomation, previewMatches } from "@/lib/actions/automations";
@@ -39,6 +39,42 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     >
       {children}
     </button>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  display,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  display: string;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <Lbl>{label}</Lbl>
+        <span className="font-mono text-xs font-semibold tabular-nums text-foreground">{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-primary"
+      />
+    </div>
   );
 }
 
@@ -77,9 +113,9 @@ export function AutomationForm({
   // condition (superset; only the relevant fields are read per kind)
   const [scope, setScope] = useState<"unpaid" | "overdue" | "all">("overdue");
   const [segment, setSegment] = useState<string[]>([]);
-  const [aging, setAging] = useState<string[]>([]);
   const [minRisk, setMinRisk] = useState(0);
   const [minOpen, setMinOpen] = useState(0);
+  const [minDaysOverdue, setMinDaysOverdue] = useState(0);
   const [minOverdueAr, setMinOverdueAr] = useState(0);
   const [minOverdueCount, setMinOverdueCount] = useState(0);
 
@@ -106,7 +142,7 @@ export function AutomationForm({
   const isReport = kind === "report";
 
   function condition() {
-    if (kind === "invoice") return { scope, segment, status: [], aging, minRisk, minOpen };
+    if (kind === "invoice") return { scope, segment, status: [], minRisk, minOpen, minDaysOverdue };
     if (kind === "customer") return { segment, minOpenAr: 0, minOverdueAr, minOverdueCount };
     return {};
   }
@@ -131,7 +167,7 @@ export function AutomationForm({
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, scope, JSON.stringify(segment), JSON.stringify(aging), minRisk, minOpen, minOverdueAr, minOverdueCount]);
+  }, [open, kind, scope, JSON.stringify(segment), minRisk, minOpen, minDaysOverdue, minOverdueAr, minOverdueCount]);
 
   // Keep the effect kind valid for the chosen target.
   function pickKind(k: Kind) {
@@ -187,9 +223,9 @@ export function AutomationForm({
     setKind("invoice");
     setScope("overdue");
     setSegment([]);
-    setAging([]);
     setMinRisk(0);
     setMinOpen(0);
+    setMinDaysOverdue(0);
     setMinOverdueAr(0);
     setMinOverdueCount(0);
     setEffectKind("followup");
@@ -258,26 +294,33 @@ export function AutomationForm({
                     ))}
                   </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Lbl>Faixa de atraso</Lbl>
-                  <div className="flex flex-wrap gap-1.5">
-                    {AGING_BUCKETS.map((b) => (
-                      <Chip key={b} active={aging.includes(b)} onClick={() => toggle(aging, b, setAging)}>
-                        {AGING_LABELS[b]}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex flex-col gap-1.5">
-                    <Lbl>Risco mínimo</Lbl>
-                    <NumberInput value={minRisk} onChange={setMinRisk} min={0} max={100} step={5} />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <Lbl>Em aberto ≥ (R$)</Lbl>
-                    <NumberInput value={minOpen} onChange={setMinOpen} min={0} step={1000} />
-                  </label>
-                </div>
+                <Slider
+                  label="Risco mínimo"
+                  value={minRisk}
+                  display={String(minRisk)}
+                  min={0}
+                  max={95}
+                  step={5}
+                  onChange={setMinRisk}
+                />
+                <Slider
+                  label="Em aberto ≥"
+                  value={minOpen}
+                  display={brl(minOpen)}
+                  min={0}
+                  max={100000}
+                  step={5000}
+                  onChange={setMinOpen}
+                />
+                <Slider
+                  label="Vencimento (atraso ≥)"
+                  value={minDaysOverdue}
+                  display={`${minDaysOverdue} dias`}
+                  min={0}
+                  max={90}
+                  step={15}
+                  onChange={setMinDaysOverdue}
+                />
               </>
             )}
 

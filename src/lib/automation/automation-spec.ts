@@ -19,6 +19,7 @@ export const invoiceConditionSchema = z.object({
   aging: z.array(z.string()).default([]),
   minRisk: z.number().min(0).max(100).default(0),
   minOpen: z.number().min(0).default(0),
+  minDaysOverdue: z.number().min(0).max(3650).default(0),
 });
 export type InvoiceCondition = z.infer<typeof invoiceConditionSchema>;
 
@@ -126,6 +127,7 @@ export function describeCondition(target: Target, conditionRaw: unknown): string
     if (c.segment.length) parts.push(c.segment.map((s) => SEGMENT_LABELS[s] ?? s).join("/"));
     if (c.status.length) parts.push(c.status.map((s) => STATUS_LABELS[s as never] ?? s).join("/"));
     if (c.aging.length) parts.push(c.aging.map((a) => AGING_LABELS[a as never] ?? a).join("/"));
+    if (c.minDaysOverdue > 0) parts.push(`atraso ≥ ${c.minDaysOverdue} dias`);
     if (c.minRisk > 0) parts.push(`risco ≥ ${c.minRisk}`);
     if (c.minOpen > 0) parts.push(`em aberto ≥ R$ ${c.minOpen.toLocaleString("pt-BR")}`);
   } else {

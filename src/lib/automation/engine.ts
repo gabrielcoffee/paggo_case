@@ -69,7 +69,7 @@ async function resolveInvoiceMatches(cond: InvoiceCondition): Promise<InvoiceMat
       riskScore: r.riskScore,
       status: r.status,
     }))
-    .filter((m) => m.open >= cond.minOpen);
+    .filter((m) => m.open >= cond.minOpen && m.daysOverdue >= cond.minDaysOverdue);
 }
 
 async function resolveCustomerMatches(cond: CustomerCondition) {
