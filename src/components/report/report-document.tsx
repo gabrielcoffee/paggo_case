@@ -5,7 +5,6 @@ import { SEGMENT_LABELS, STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/invo
 import type { InvoiceStatus } from "@/generated/prisma/enums";
 import {
   COLUMN_LABELS,
-  ROWS_PER_PAGE,
   type ColumnKey,
   type ReportConfig,
   type ReportData,
@@ -46,12 +45,6 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 24, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", fontSize: 8, color: "#999" },
 });
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
 function Header({ data }: { data: ReportData }) {
   const { meta } = data;
   return (
@@ -76,7 +69,7 @@ function Header({ data }: { data: ReportData }) {
 
 function TableHead({ columns }: { columns: ColumnKey[] }) {
   return (
-    <View style={s.thead}>
+    <View style={s.thead} fixed>
       {columns.map((k) => (
         <Text
           key={k}
@@ -91,7 +84,7 @@ function TableHead({ columns }: { columns: ColumnKey[] }) {
 
 function Row({ row, columns }: { row: ReportRow; columns: ColumnKey[] }) {
   return (
-    <View style={s.row}>
+    <View style={s.row} wrap={false}>
       {columns.map((k) => (
         <Text key={k} style={[s.cell, { flex: COLS[k].flex, textAlign: COLS[k].align }]}>
           {COLS[k].value(row)}
@@ -109,28 +102,24 @@ export function reportElement(props: { data: ReportData; config: ReportConfig })
 }
 
 export function ReportDocument({ data, config }: { data: ReportData; config: ReportConfig }) {
-  const pages = chunk(data.rows, ROWS_PER_PAGE);
-  const total = pages.length || 1;
+  // Single page; @react-pdf breaks to new pages automatically as rows overflow.
+  // The header block shows once (page 1), the table head + footer repeat (fixed).
   return (
     <Document title={`Relatório — ${data.meta.presetLabel}`}>
-      {(pages.length ? pages : [[]]).map((pageRows, i) => (
-        <Page key={i} size="A4" style={s.page}>
-          {i === 0 && <Header data={data} />}
-          <TableHead columns={config.columns} />
-          {pageRows.map((r) => (
-            <Row key={r.id} row={r} columns={config.columns} />
-          ))}
-          {pageRows.length === 0 && (
-            <Text style={{ marginTop: 12, color: "#999" }}>Nenhuma fatura corresponde ao filtro.</Text>
-          )}
-          <View style={s.footer} fixed>
-            <Text>Paggo · Relatório de cobrança</Text>
-            <Text>
-              Página {i + 1} de {total}
-            </Text>
-          </View>
-        </Page>
-      ))}
+      <Page size="A4" style={s.page}>
+        <Header data={data} />
+        <TableHead columns={config.columns} />
+        {data.rows.map((r) => (
+          <Row key={r.id} row={r} columns={config.columns} />
+        ))}
+        {data.rows.length === 0 && (
+          <Text style={{ marginTop: 12, color: "#999" }}>Nenhuma fatura corresponde ao filtro.</Text>
+        )}
+        <View style={s.footer} fixed>
+          <Text>Paggo · Relatório de cobrança</Text>
+          <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
+        </View>
+      </Page>
     </Document>
   );
 }

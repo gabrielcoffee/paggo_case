@@ -28,7 +28,7 @@ const PRESET_DESC: Record<string, string> = {
 
 const SEGMENTS = ["SMB", "MID", "ENT"];
 const STATUSES = Object.keys(STATUS_LABELS) as InvoiceStatus[];
-const COUNTS = [5, 10, 15] as const;
+const COUNTS = [5, 10, 15, 20] as const;
 
 const DEFAULT: ReportConfig = reportConfigSchema.parse({ preset: "maior_risco" });
 
@@ -50,11 +50,14 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // A <div>, not a <label>: these fields wrap multiple buttons (chips), and a
+  // <label> forwards clicks/hover to its first control (SMB), causing cross-chip
+  // highlight/selection.
   return (
-    <label className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 

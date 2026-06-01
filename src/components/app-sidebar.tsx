@@ -16,6 +16,8 @@ import {
   Bot,
   Zap,
   ClipboardList,
+  Folder,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,7 +62,9 @@ const NAV: NavItem[] = [
 
 export function AppSidebar({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  // Accordion: at most one folder open at a time. null → fall back to the folder
+  // whose child route is active.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const isActive = (item: { href: string; exact?: boolean }) =>
     item.exact
       ? pathname === item.href
@@ -86,10 +90,10 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
             return <NavLink key={item.href} item={item} active={isActive(item)} />;
           }
           const childActive = item.children.some((c) => isActive(c));
-          const expanded = open[item.href] ?? childActive;
+          const expanded = openGroup !== null ? openGroup === item.href : childActive;
           const active = item.groupOnly ? childActive : isActive(item);
-          const Icon = item.icon;
-          const toggle = () => setOpen((s) => ({ ...s, [item.href]: !expanded }));
+          const FolderIcon = expanded ? FolderOpen : Folder;
+          const toggle = () => setOpenGroup(expanded ? null : item.href);
           const headerCls = cn(
             "transition-colors",
             active
@@ -106,7 +110,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
                   aria-expanded={expanded}
                   className={cn("flex w-full items-center rounded-md px-2.5 py-2 text-sm font-medium", headerCls)}
                 >
-                  <Icon className="h-4 w-4" />
+                  <FolderIcon className="h-4 w-4" />
                   <span className="ml-2.5">{item.label}</span>
                   <ChevronDown
                     className={cn("ml-auto h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
@@ -118,7 +122,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
                     href={item.href}
                     className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-sm font-medium"
                   >
-                    <Icon className="h-4 w-4" />
+                    <FolderIcon className="h-4 w-4" />
                     {item.label}
                   </Link>
                   <button
@@ -142,9 +146,15 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
                 )}
               >
                 <div className="overflow-hidden">
-                  <div className="mt-0.5 flex flex-col gap-0.5">
+                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
                     {item.children.map((c) => (
-                      <NavLink key={c.href} item={c} active={isActive(c)} nested />
+                      <NavLink
+                        key={c.href}
+                        item={c}
+                        active={isActive(c)}
+                        nested
+                        onNavigate={() => setOpenGroup(item.href)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -190,18 +200,21 @@ function NavLink({
   item,
   active,
   nested,
+  onNavigate,
 }: {
   item: NavItem;
   active: boolean;
   nested?: boolean;
+  onNavigate?: () => void;
 }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         "flex items-center gap-2.5 rounded-md py-2 text-sm font-medium transition-colors",
-        nested ? "pl-8 pr-2.5 text-[13px]" : "px-2.5",
+        nested ? "pl-3 pr-2.5 text-[13px]" : "px-2.5",
         active
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",

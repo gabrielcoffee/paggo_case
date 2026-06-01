@@ -66,7 +66,7 @@ export type ReportFilters = z.infer<typeof reportFiltersSchema>;
 
 export const reportConfigSchema = z.object({
   preset: z.enum(REPORT_PRESETS).default("maior_risco"),
-  count: z.union([z.literal(5), z.literal(10), z.literal(15)]).default(10),
+  count: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20)]).default(10),
   sort: z.enum(["risco", "valor_aberto", "vencimento"]).default("risco"),
   filters: reportFiltersSchema.default({ scope: "unpaid", segment: [], status: [], aging: [], minRisk: 0 }),
   columns: z.array(z.enum(COLUMN_KEYS)).min(1).default(DEFAULT_COLUMNS),
@@ -116,5 +116,3 @@ export type ReportMeta = {
 };
 
 export type ReportData = { rows: ReportRow[]; meta: ReportMeta };
-
-export const ROWS_PER_PAGE = 5;
