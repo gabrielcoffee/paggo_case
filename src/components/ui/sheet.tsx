@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { usePanelWidth } from "@/lib/use-panel-width";
+import { PanelResizeHandle } from "@/components/panel-resize-handle";
 
-// Right-side sliding panel. Hand-rolled (no shadcn sheet in base-nova) using the
-// same transition approach as filter-dropdown. The list stays mounted and
-// scrollable behind it. Closes on Escape or overlay click.
+// Right-side sliding panel. Hand-rolled (no shadcn sheet in base-nova). The list
+// stays mounted and scrollable behind it. Closes on Escape or the X button.
+// Width is resizable via the left-edge handle and persisted (shared across panels).
 export function Sheet({
   open,
   onClose,
@@ -15,6 +17,8 @@ export function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const { width, setWidth } = usePanelWidth();
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -24,18 +28,17 @@ export function Sheet({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // Non-modal: no overlay, so the invoice list behind stays scrollable and the
-  // analyst can click another row (which swaps the panel's contents). Closes via
-  // the X button or Escape.
   return (
     <aside
       role="dialog"
-      aria-label="Detalhe da fatura"
+      aria-label="Painel de detalhe"
+      style={{ width, maxWidth: "100vw" }}
       className={cn(
-        "fixed right-0 top-0 z-50 flex h-screen w-full max-w-[480px] flex-col border-l border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
+        "fixed right-0 top-0 z-50 flex h-screen flex-col border-l border-border bg-card shadow-2xl transition-transform duration-200 ease-out",
         open ? "translate-x-0" : "translate-x-full",
       )}
     >
+      <PanelResizeHandle onResize={(x) => setWidth(window.innerWidth - x)} />
       {children}
     </aside>
   );

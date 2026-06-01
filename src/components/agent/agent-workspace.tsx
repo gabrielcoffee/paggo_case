@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AgentChat } from "@/components/agent/agent-chat";
 import { InvoiceDetailPanel } from "@/components/invoice-detail-panel";
 import { CustomerDetailPanel } from "@/components/customer-detail-panel";
+import { PanelResizeHandle } from "@/components/panel-resize-handle";
+import { usePanelWidth } from "@/lib/use-panel-width";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { prefetchCustomer } from "@/lib/customer-detail-cache";
 
@@ -13,6 +15,7 @@ type Selection = { kind: "invoice" | "customer"; id: string } | null;
 // when the analyst clicks an invoice/customer row in a chat answer.
 export function AgentWorkspace({ today }: { today: string }) {
   const [sel, setSel] = useState<Selection>(null);
+  const { width, setWidth } = usePanelWidth();
 
   return (
     <div className="flex h-screen">
@@ -24,7 +27,11 @@ export function AgentWorkspace({ today }: { today: string }) {
         }}
       />
       {sel && (
-        <aside className="flex h-screen w-full max-w-[480px] shrink-0 flex-col border-l border-border bg-card">
+        <aside
+          style={{ width, maxWidth: "100vw" }}
+          className="relative flex h-screen shrink-0 flex-col border-l border-border bg-card"
+        >
+          <PanelResizeHandle onResize={(x) => setWidth(window.innerWidth - x)} />
           {sel.kind === "invoice" ? (
             <InvoiceDetailPanel
               key={sel.id}

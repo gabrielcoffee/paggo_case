@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { X, Users } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RiskBadge } from "@/components/risk-badge";
 import { StatusChip } from "@/components/status-chip";
@@ -64,17 +64,22 @@ export function CustomerDetailPanel({
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
-        <div className="min-w-0">
-          {view ? (
-            <>
-              <h2 className="truncate text-base font-semibold">{view.name}</h2>
-              <p className="font-mono text-xs text-muted-foreground">
-                {view.id} · {SEGMENT_LABELS[view.segment]}
-              </p>
-            </>
-          ) : (
-            <h2 className="text-base font-semibold text-muted-foreground">Carregando…</h2>
-          )}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Users className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            {view ? (
+              <>
+                <h2 className="truncate text-base font-semibold">{view.name}</h2>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {view.id} · {SEGMENT_LABELS[view.segment]}
+                </p>
+              </>
+            ) : (
+              <h2 className="text-base font-semibold text-muted-foreground">Carregando…</h2>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}

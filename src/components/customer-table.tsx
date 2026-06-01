@@ -6,7 +6,6 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { CustomerSheet } from "@/components/customer-sheet";
 import { Sheet } from "@/components/ui/sheet";
 import { InvoiceDetailPanel } from "@/components/invoice-detail-panel";
-import { RiskBadge } from "@/components/risk-badge";
 import { PAGE_SIZE, type CustomerRow } from "@/lib/queries/customer-types";
 import { prefetchCustomer } from "@/lib/customer-detail-cache";
 import { prefetchDetail } from "@/lib/detail-cache";
@@ -155,7 +154,6 @@ export function CustomerTable({
               <th className="text-right!">
                 <SortHeader label="Vencidas" field="overdueCount" sort={sort} dir={dir} onSort={sortBy} align="right" />
               </th>
-              <th className="text-right!">Risco</th>
             </tr>
           </thead>
           <tbody>
@@ -184,14 +182,11 @@ export function CustomerTable({
                 </td>
                 <td className="text-right font-mono tabular-nums">{c.invoiceCount}</td>
                 <td className="text-right font-mono tabular-nums">{c.overdueCount}</td>
-                <td className="text-right">
-                  {c.maxRisk > 0 ? <RiskBadge score={c.maxRisk} /> : <span className="text-muted-foreground">—</span>}
-                </td>
               </tr>
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-16 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="px-3 py-16 text-center text-sm text-muted-foreground">
                   Nenhum cliente corresponde aos filtros.
                 </td>
               </tr>
