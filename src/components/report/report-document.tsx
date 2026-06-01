@@ -1,4 +1,5 @@
-import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import { createElement, type ReactElement } from "react";
+import { Document, Page, View, Text, StyleSheet, type DocumentProps } from "@react-pdf/renderer";
 import { brl, date, dateTime } from "@/lib/format";
 import { SEGMENT_LABELS, STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/invoice-status";
 import type { InvoiceStatus } from "@/generated/prisma/enums";
@@ -98,6 +99,13 @@ function Row({ row, columns }: { row: ReportRow; columns: ColumnKey[] }) {
       ))}
     </View>
   );
+}
+
+// @react-pdf's pdf()/renderToBuffer want a ReactElement<DocumentProps>; a custom
+// component element doesn't structurally match, so this helper centralizes the
+// cast for all call sites (dialog download/print, email attachment, tests).
+export function reportElement(props: { data: ReportData; config: ReportConfig }): ReactElement<DocumentProps> {
+  return createElement(ReportDocument, props) as unknown as ReactElement<DocumentProps>;
 }
 
 export function ReportDocument({ data, config }: { data: ReportData; config: ReportConfig }) {

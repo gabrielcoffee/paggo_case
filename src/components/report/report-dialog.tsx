@@ -88,8 +88,8 @@ export function ReportDialog() {
   async function generate(): Promise<Blob> {
     const data = await getReportRows(cfg);
     const { pdf } = await import("@react-pdf/renderer");
-    const { ReportDocument } = await import("@/components/report/report-document");
-    return pdf(<ReportDocument data={data} config={cfg} />).toBlob();
+    const { reportElement } = await import("@/components/report/report-document");
+    return pdf(reportElement({ data, config: cfg })).toBlob();
   }
 
   async function download() {
