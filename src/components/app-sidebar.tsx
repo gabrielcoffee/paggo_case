@@ -15,7 +15,8 @@ import {
   ChevronDown,
   Bot,
   Zap,
-  ClipboardList,
+  Folder,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ type NavItem = {
   exact?: boolean;
   // Parent acts only as an expander (no navigation) — clicking toggles its children.
   groupOnly?: boolean;
+  // Show a folder icon that opens/closes with the group instead of a static icon.
+  folderIcon?: boolean;
   children?: NavItem[];
 };
 
@@ -37,8 +40,9 @@ const NAV: NavItem[] = [
   {
     href: "tratativas-group",
     label: "Tratativas",
-    icon: ClipboardList,
+    icon: Folder,
     groupOnly: true,
+    folderIcon: true,
     children: [
       { href: "/notes", label: "Notas", icon: MessageSquare },
       { href: "/followups", label: "Follow-ups", icon: Clock },
@@ -88,7 +92,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
           const childActive = item.children.some((c) => isActive(c));
           const expanded = open[item.href] ?? childActive;
           const active = item.groupOnly ? childActive : isActive(item);
-          const Icon = item.icon;
+          const Icon = item.folderIcon ? (expanded ? FolderOpen : Folder) : item.icon;
           const toggle = () => setOpen((s) => ({ ...s, [item.href]: !expanded }));
           const headerCls = cn(
             "transition-colors",
