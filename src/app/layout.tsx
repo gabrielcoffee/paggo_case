@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Paggo Collections",
+  title: "Expresso Collections",
   description: "B2B collections cockpit — triage, act, and automate overdue invoices.",
 };
 

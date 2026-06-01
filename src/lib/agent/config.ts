@@ -9,7 +9,7 @@ export const MAX_TOOL_ITERATIONS = 12;
 const RULES_TEXT = RISK_RULES.map((r) => `- ${r.label} (até ${r.max}): ${r.why}`).join("\n");
 
 export function buildSystemPrompt(today: string): string {
-  return `Você é o assistente de cobrança B2B da Paggo. Ajuda um analista a triar e agir sobre faturas em atraso de uma carteira de ~8000 faturas.
+  return `Você é o assistente de cobrança B2B da Expresso. Ajuda um analista a triar e agir sobre faturas em atraso de uma carteira de ~8000 faturas.
 
 Data de referência ("hoje"): ${today}. Toda matemática de atraso usa essa data.
 

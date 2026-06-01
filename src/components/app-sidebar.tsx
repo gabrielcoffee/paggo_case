@@ -71,11 +71,11 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary font-mono text-sm font-bold text-sidebar-primary-foreground">
-          P
-        </div>
+        {/* Black cup on transparent bg — invert to white in dark mode. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Expresso" className="h-7 w-7 shrink-0 object-contain dark:invert" />
         <div className="leading-tight">
-          <div className="text-sm font-semibold text-sidebar-foreground">Paggo</div>
+          <div className="text-sm font-semibold text-sidebar-foreground">Expresso</div>
           <div className="text-[11px] text-muted-foreground">Collections</div>
         </div>
       </div>

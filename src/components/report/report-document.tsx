@@ -49,7 +49,7 @@ function Header({ data }: { data: ReportData }) {
   const { meta } = data;
   return (
     <View>
-      <Text style={s.brand}>Paggo · Cobrança</Text>
+      <Text style={s.brand}>Expresso · Cobrança</Text>
       <Text style={s.title}>{meta.presetLabel}</Text>
       <Text style={s.sub}>Filtro: {meta.filtroResumo || "—"}</Text>
       <Text style={s.sub}>Gerado em {dateTime(meta.geradoEm)} (data de referência da carteira)</Text>
@@ -116,7 +116,7 @@ export function ReportDocument({ data, config }: { data: ReportData; config: Rep
           <Text style={{ marginTop: 12, color: "#999" }}>Nenhuma fatura corresponde ao filtro.</Text>
         )}
         <View style={s.footer} fixed>
-          <Text>Paggo · Relatório de cobrança</Text>
+          <Text>Expresso · Relatório de cobrança</Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>

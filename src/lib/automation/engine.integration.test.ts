@@ -3,7 +3,7 @@ import { describe, it, expect, afterAll, vi } from "vitest";
 // next/cache throws outside a request context; stub it like the other integration tests.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), updateTag: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
-  getUser: vi.fn(async () => ({ id: "TEST-USER", email: "test@paggo.dev" })),
+  getUser: vi.fn(async () => ({ id: "TEST-USER", email: "test@expresso.dev" })),
 }));
 
 import { prisma } from "@/lib/prisma";

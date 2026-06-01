@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-const KEY = "paggo:panel-width";
+const KEY = "expresso:panel-width";
 export const PANEL_MIN = 360;
 export const PANEL_MAX = 900;
 const DEFAULT = 480;
