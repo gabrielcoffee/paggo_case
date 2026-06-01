@@ -109,6 +109,33 @@ The audit log is treated as a first-class product feature, surfaced in invoice a
 - Batch actions, write-offs, and payment agreements go through `proposeBatchAction` → `agent_plans` row → UI plan card → `confirmPlan(planId)` → transactional execution.
 - The model never invents IDs; tool schemas require concrete identifiers, otherwise the agent must search or ask.
 - System prompt uses Anthropic prompt caching for the tools description and persona block.
+- Chat is a **single persistent conversation per user** (no chat list/cap). "Resetar chat" wipes it in place (`resetChat`).
+
+## Reports (PDF)
+
+"Gerar relatório" on the invoices page opens `ReportDialog`. `ReportConfig`
+(`src/lib/report/report-config.ts`, prisma-free) is the shared contract: preset
+(default top-10 by risk), count (5/10/15), sort, filters (reuse the invoice
+filter shape), columns. `fetchReportRows` (`build-report.ts`, server, reuses
+`buildWhere`) returns rows+meta; `ReportDocument` (`@react-pdf/renderer`) renders
+5 rows/page (max 3 pages). Same document is used in the browser (download/print
+via `pdf().toBlob()`) and server-side (`renderToBuffer`) for the email effect.
+
+## Automations
+
+Scheduled rules in the "Automações" tab of the Agente screen.
+`AutomationSpec` (`src/lib/automation/automation-spec.ts`) is the single source
+of truth — `{ target, condition, effect, schedule }` — driving the manual form,
+the agent tool, validation, and the engine. Effects: `note`, `followup`,
+`status` (per matched entity) and `report_email` (renders + emails the PDF via
+Resend, runs once). `engine.ts` resolves matches (reusing `buildWhere` /
+customer aggregates), applies effects with `origin: "automation"` + the rule id
+(also used to dedup re-runs), records an `AutomationRun`, and advances
+`nextRunAt` (`computeNextRun`, wall-clock; conditions evaluate against
+`APP_TODAY`). Triggers: "Executar agora" (demo path) and `GET /api/cron/automations`
+(Vercel Cron, hourly). Chat creation reuses the plan-card/confirm HITL flow via
+an `automation` plan step executed in `confirmPlan`. Models `AutomationRule` +
+`AutomationRun` (applied via Supabase MCP; client regenerated).
 
 ## Development Workflow
 
@@ -157,6 +184,8 @@ npm run test:watch   # vitest watch mode
 | `DATABASE_URL` | Supabase Postgres connection string (Transaction pooler URI) |
 | `ANTHROPIC_API_KEY` | Claude API key for the agent |
 | `APP_TODAY` | Reference date for aging math (e.g. `2026-04-01`) |
+| `RESEND_API_KEY` | Resend key for the automation "report_email" effect (sends from `onboarding@resend.dev`; without a verified domain Resend only delivers to the account owner's email) |
+| `CRON_SECRET` | Optional bearer token guarding `GET /api/cron/automations` (Vercel Cron) |
 
 ## Coding Standards
 

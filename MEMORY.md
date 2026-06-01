@@ -200,6 +200,28 @@ Notes can attach to either a customer or an invoice (spec requirement). Same for
 
 The optional bonus includes auth. ROI is low for this case — auth doesn't change the prioritization quality, agent quality, or CRUD correctness. All audit entries use `actor: 'analyst-default'` until/unless auth is added. The schema already accommodates real user IDs without migration.
 
+## Reports + Automations (final feature)
+
+### One AutomationSpec drives everything (not a tool per combination)
+
+The tricky part was the combinatorial explosion (causes × effects × schedules). Resolved with a single `AutomationSpec` (`src/lib/automation/automation-spec.ts`): `{ target, condition, effect, schedule }` with discriminated-union effect. The same schema validates the agent tool input, the manual form, and the engine — combinations are *data* (enums + params), not code per combination. So **one** `proposeAutomation` agent tool, one form, one engine. The engine branches in just two ways: per-entity effects (note/followup/status, iterate matches) vs portfolio (report_email, runs once).
+
+### Scheduling: wall-clock cadence, APP_TODAY conditions, dedup, manual demo path
+
+Data is frozen at `APP_TODAY`, so a real daily cron would rewrite the same notes forever. Decision: schedule advances on the real calendar (`computeNextRun`), but conditions are evaluated against `APP_TODAY`. Dedup keys on `AuditEvent.payload.automationId` since `lastRunAt`, so re-clicking "Executar agora" never duplicates. The demo path is the per-rule "Executar agora" button; `GET /api/cron/automations` (Vercel Cron, `CRON_SECRET`) is the real unattended path.
+
+### Chat creation reuses the plan-card HITL flow
+
+Rather than thread a new proposal-card type through the streaming/persistence pipeline, `proposeAutomation` builds an `AgentPlan` with a new `automation` plan step. `PlanModal` already renders steps via `describeStep`, and `confirmPlan`/`execStep` execute them — so chat-created automations get the existing confirm modal for free. **Why:** keeps the human-in-the-loop guarantee with zero new plumbing.
+
+### PDF via @react-pdf/renderer; email via Resend
+
+`@react-pdf/renderer` installed clean under React 19. One `ReportDocument` serves browser (`pdf().toBlob()` for download/print) and server (`renderToBuffer` for the email attachment) — see `reportElement` helper for the shared typed cast. Report-email recipient is `getUser().email`; **Resend without a verified domain only delivers to the account owner's email**, so the Supabase login email must match the Resend account email (or verify a domain).
+
+### Migration applied via Supabase MCP (migrate dev would reset)
+
+`AutomationRule`/`AutomationRun` were added with `mcp__supabase__apply_migration` (+ `prisma generate`), NOT `prisma migrate dev` — the latter detected drift (Chat/ChatMessage were also added via MCP, not in migration history) and wanted to **reset the DB**, which would wipe the 8000 invoices. RLS enabled, no policies (consistent with the other tables).
+
 ## Process / scope decisions
 
 ### 4-day compressed schedule
