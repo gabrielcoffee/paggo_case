@@ -20,7 +20,15 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; children?: NavItem[] };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+  // Parent acts only as an expander (no navigation) — clicking toggles its children.
+  groupOnly?: boolean;
+  children?: NavItem[];
+};
 
 const NAV: NavItem[] = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -39,6 +47,7 @@ const NAV: NavItem[] = [
     href: "/agent",
     label: "Agente",
     icon: Sparkles,
+    groupOnly: true,
     children: [
       { href: "/agent", label: "Chat", icon: Bot, exact: true },
       { href: "/agent/automacoes", label: "Automações", icon: Zap },
@@ -77,35 +86,51 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
           const expanded = open[item.href] ?? childActive;
           const active = isActive(item);
           const Icon = item.icon;
+          const toggle = () => setOpen((s) => ({ ...s, [item.href]: !expanded }));
+          const headerCls = cn(
+            "transition-colors",
+            active
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+          );
           return (
             <div key={item.href}>
-              <div
-                className={cn(
-                  "flex items-center rounded-md pr-1 transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <Link
-                  href={item.href}
-                  className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-sm font-medium"
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
+              {item.groupOnly ? (
+                // Pure expander: clicking only opens/closes the children, no navigation.
                 <button
                   type="button"
-                  onClick={() => setOpen((s) => ({ ...s, [item.href]: !expanded }))}
-                  aria-label={expanded ? "Recolher" : "Expandir"}
+                  onClick={toggle}
                   aria-expanded={expanded}
-                  className="rounded p-1 opacity-70 hover:opacity-100"
+                  className={cn("flex w-full items-center rounded-md px-2.5 py-2 text-sm font-medium", headerCls)}
                 >
+                  <Icon className="h-4 w-4" />
+                  <span className="ml-2.5">{item.label}</span>
                   <ChevronDown
-                    className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
+                    className={cn("ml-auto h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
                   />
                 </button>
-              </div>
+              ) : (
+                <div className={cn("flex items-center rounded-md pr-1", headerCls)}>
+                  <Link
+                    href={item.href}
+                    className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-sm font-medium"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    aria-label={expanded ? "Recolher" : "Expandir"}
+                    aria-expanded={expanded}
+                    className="rounded p-1 opacity-70 hover:opacity-100"
+                  >
+                    <ChevronDown
+                      className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
+                    />
+                  </button>
+                </div>
+              )}
 
               <div
                 className={cn(

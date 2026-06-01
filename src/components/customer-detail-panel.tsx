@@ -21,7 +21,7 @@ import type {
   DetailFollowUp,
   DetailAudit,
 } from "@/lib/actions/invoice-detail";
-import { addNote, scheduleFollowUp } from "@/lib/actions/invoices";
+import { addNote, updateNote, deleteNote, scheduleFollowUp } from "@/lib/actions/invoices";
 import { useMutation } from "@/lib/use-mutation";
 import { prefetchDetail } from "@/lib/detail-cache";
 import { brl, date, dateTime } from "@/lib/format";
@@ -135,6 +135,32 @@ export function CustomerDetailPanel({
         })),
       () => addNote({ entityType: "customer", entityId: id, body }),
       { onSuccess: reconcile, successMessage: "Nota adicionada" },
+    );
+  };
+
+  const onUpdateNote = (noteId: string, body: string) => {
+    run(
+      () =>
+        applyPatch((d) => ({
+          ...d,
+          notes: d.notes.map((n) => (n.id === noteId ? { ...n, body } : n)),
+          auditEvents: [tmpAudit("note_updated", { noteId }), ...d.auditEvents],
+        })),
+      () => updateNote({ noteId, body }),
+      { onSuccess: reconcile, successMessage: "Nota atualizada" },
+    );
+  };
+
+  const onDeleteNote = (noteId: string) => {
+    run(
+      () =>
+        applyPatch((d) => ({
+          ...d,
+          notes: d.notes.filter((n) => n.id !== noteId),
+          auditEvents: [tmpAudit("note_deleted", { noteId }), ...d.auditEvents],
+        })),
+      () => deleteNote(noteId),
+      { onSuccess: reconcile, successMessage: "Nota excluída" },
     );
   };
 
@@ -301,7 +327,7 @@ export function CustomerDetailPanel({
                 {extrasLoading ? (
                   <p className="text-sm text-muted-foreground">Carregando…</p>
                 ) : (
-                  <NoteList notes={view.notes} />
+                  <NoteList notes={view.notes} onUpdate={onUpdateNote} onDelete={onDeleteNote} />
                 )}
               </div>
             </TabsContent>
