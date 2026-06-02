@@ -7,7 +7,7 @@ PDF, executa **automações agendadas**, e inclui um **agente de IA** que respon
 executa ações sob confirmação humana.
 
 - **App publicado:** https://paggo-case-iota.vercel.app
-- **Repositório:** https://github.com/gabrielcoffee/paggo_case
+- **Conta de teste:** `demo@expresso.dev` / `demo1234` (login por email/senha — sem precisar do Google)
 
 ## O que tem
 
@@ -111,8 +111,9 @@ do agente entra no audit log com `origin=agent`.
 Botão **"Gerar relatório"** no topo de Faturas. O usuário escolhe o **tipo** (Maior risco / Maior
 exposição / Vencidas críticas), a **quantidade** (5/10/15/20), e as **colunas**. O PDF é gerado com
 `@react-pdf/renderer` (paginação automática, cabeçalho de tabela e rodapé repetidos) e pode ser
-**baixado** ou **impresso**. O mesmo documento é renderizado no servidor (buffer) para anexar no email
-das automações. `ReportConfig` é o contrato único compartilhado entre diálogo, builder e PDF.
+**baixado** ou **impresso**. O mesmo documento é renderizado no servidor (buffer) para o efeito de
+relatório por email das automações (envio simulado — ver Limitações). `ReportConfig` é o contrato
+único compartilhado entre diálogo, builder e PDF.
 
 ## Automações
 
@@ -130,6 +131,115 @@ e ao motor de execução; as combinações são dados, não código por combina�
   (Vercel Cron, protegida por `CRON_SECRET`) para execução automática. A agenda corre no relógio real;
   as condições são avaliadas contra `APP_TODAY`. Um dedup por regra+entidade evita reescrever a mesma
   ação. Toda escrita entra no audit log com `origin=automation`, e cada execução grava um `AutomationRun`.
+
+## Modelo de dados
+
+```mermaid
+erDiagram
+  Customer ||--o{ Invoice : possui
+  Invoice ||--o{ PaymentAgreement : "dá origem a"
+  PaymentAgreement ||--o{ AgreementInstallment : "tem parcelas"
+  Chat ||--o{ ChatMessage : "tem mensagens"
+  AutomationRule ||--o{ AutomationRun : "tem execuções"
+
+  Customer {
+    string id PK
+    string name
+    Segment segment
+    decimal creditLimit
+  }
+  Invoice {
+    string id PK
+    string customerId FK
+    date dueDate
+    date paidDate
+    decimal amount
+    decimal amountPaid
+    PaymentMethod paymentMethod
+    InvoiceStatus status
+    PaymentStatus paymentStatus
+    int riskScore
+    json riskFactors
+  }
+  PaymentAgreement {
+    string id PK
+    string originalInvoiceId FK
+    int installments
+    decimal discountPct
+    decimal feePct
+  }
+  AgreementInstallment {
+    string id PK
+    string agreementId FK
+    int installmentNumber
+    date dueDate
+    decimal amount
+    string status
+  }
+  Note {
+    string id PK
+    string entityType "invoice|customer"
+    string entityId
+    string author
+    string body
+  }
+  FollowUp {
+    string id PK
+    string entityType "invoice|customer"
+    string entityId
+    datetime dueAt
+    string channel
+    FollowUpStatus status
+  }
+  AuditEvent {
+    string id PK
+    string entityType
+    string entityId
+    string action
+    string origin "analyst|agent|automation"
+    json payload
+  }
+  AgentPlan {
+    string id PK
+    string sessionId "= Chat.id"
+    json steps
+    AgentPlanStatus status
+  }
+  Chat {
+    string id PK
+    string userId
+    string title
+  }
+  ChatMessage {
+    string id PK
+    string chatId FK
+    string role
+    text content
+    json data
+  }
+  AutomationRule {
+    string id PK
+    string name
+    boolean enabled
+    string target "invoice|customer"
+    json condition
+    json effect
+    string frequency
+    datetime nextRunAt
+  }
+  AutomationRun {
+    string id PK
+    string automationId FK
+    string trigger
+    string status
+    int matched
+    int acted
+  }
+```
+
+> `Note`, `FollowUp` e `AuditEvent` são **polimórficos** (`entityType` + `entityId`) — apontam para
+> uma fatura **ou** um cliente, sem FK rígida (integridade no app). `AgentPlan.sessionId` referencia
+> `Chat.id` logicamente (também sem FK). `AuditEvent.origin` distingue analista / agente / automação.
 
 ## Decisões de design
 

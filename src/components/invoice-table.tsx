@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -9,6 +9,8 @@ import {
   Banknote,
   Barcode,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   Clock,
   CreditCard,
@@ -105,6 +107,20 @@ function liveScore(
     if (max > 0) score += (f.points / max) * (weights[f.rule] ?? 0);
   }
   return Math.round(score);
+}
+
+// Soft risk fade behind each row: a blurred-looking color band on the right edge.
+// Color is a per-point gradient green(20)→yellow→red(80), saturating to red at
+// 80; below 20 it's hidden entirely. Width grows with the raw risk points
+// (0→100 maps to 0→20% of the row). Low alpha so it blends over the row bg in
+// light + dark.
+function riskFade(risk: number) {
+  if (risk < 20) return undefined;
+  const hue = 120 - ((Math.min(risk, 80) - 20) / 60) * 120;
+  const widthPct = (Math.min(risk, 100) / 100) * 20;
+  return {
+    backgroundImage: `linear-gradient(to left, hsl(${hue} 75% 50% / 0.18) 0%, transparent ${widthPct}%)`,
+  };
 }
 
 type SortField = "riskScore" | "open" | "dueDate" | "customer";
@@ -491,6 +507,7 @@ export function InvoiceTable({
                   key={inv.id}
                   onClick={() => setOpenRow(inv)}
                   onMouseEnter={() => prefetchDetail(inv.id)}
+                  style={riskFade(inv.riskScore)}
                   className={cn(
                     "cursor-pointer border-b border-border/60 transition-colors [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!",
                     openRow?.id === inv.id ? "bg-accent/70" : "hover:bg-accent/40",
@@ -549,15 +566,21 @@ export function InvoiceTable({
           {from}–{to} de {total.toLocaleString("pt-BR")}
         </span>
         <div className="flex items-center gap-1">
-          <PageBtn onClick={() => setPage(safePage - 1)} disabled={safePage <= 1} label="Anterior" />
+          <PageBtn onClick={() => setPage(1)} disabled={safePage <= 1}>
+            Primeira
+          </PageBtn>
+          <PageBtn onClick={() => setPage(safePage - 1)} disabled={safePage <= 1} ariaLabel="Página anterior">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </PageBtn>
           <span className="px-2 font-mono tabular-nums">
             {safePage} / {pageCount}
           </span>
-          <PageBtn
-            onClick={() => setPage(safePage + 1)}
-            disabled={safePage >= pageCount}
-            label="Próxima"
-          />
+          <PageBtn onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount} ariaLabel="Próxima página">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </PageBtn>
+          <PageBtn onClick={() => setPage(pageCount)} disabled={safePage >= pageCount}>
+            Última
+          </PageBtn>
         </div>
       </footer>
 
@@ -718,22 +741,25 @@ function SortHeader({
 function PageBtn({
   onClick,
   disabled,
-  label,
+  children,
+  ariaLabel,
 }: {
   onClick: () => void;
   disabled: boolean;
-  label: string;
+  children: ReactNode;
+  ariaLabel?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className={cn(
-        "rounded-md border border-border px-2.5 py-1",
+        "flex items-center rounded-md border border-border px-2.5 py-1",
         disabled ? "cursor-not-allowed opacity-40" : "hover:bg-accent",
       )}
     >
-      {label}
+      {children}
     </button>
   );
 }
