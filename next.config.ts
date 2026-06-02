@@ -12,7 +12,10 @@ const nextConfig: NextConfig = {
   // Next's output tracing to bundle it into the serverless functions (otherwise
   // prod 500s with "Query engine not found" on the first DB query).
   outputFileTracingIncludes: {
-    "/**": ["./src/generated/prisma/**/*"],
+    "/*": [
+      "src/generated/prisma/**/*",
+      "src/generated/prisma/libquery_engine-*.node",
+    ],
   },
 };
 
