@@ -6,123 +6,73 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+const DEMO = { email: "demo@expresso.dev", password: "demo1234" };
+
 // Supabase auth errors come in English; map the common ones to Portuguese.
 function translateAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials")) return "E-mail ou senha inválidos.";
-  if (m.includes("email not confirmed")) return "E-mail ainda não confirmado.";
-  if (m.includes("user already registered")) return "Este e-mail já está cadastrado.";
-  if (m.includes("password should be at least")) return "A senha deve ter ao menos 6 caracteres.";
-  if (m.includes("unable to validate email") || m.includes("invalid email")) return "E-mail inválido.";
   if (m.includes("rate limit")) return "Muitas tentativas. Tente novamente mais tarde.";
-  if (m.includes("for security purposes")) return "Aguarde alguns segundos antes de tentar de novo.";
-  if (m.includes("user not found")) return "Usuário não encontrado.";
-  return message;
+  return "Não foi possível entrar. Tente novamente.";
 }
 
 export function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<null | "google" | "demo">(null);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function demo() {
     setError(null);
-    setInfo(null);
-    setLoading(true);
+    setLoading("demo");
     const supabase = createSupabaseBrowserClient();
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        // If email confirmation is on, there's no session yet.
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          setInfo("Conta criada. Confirme o e-mail (ou desligue a confirmação no Supabase) e entre.");
-          setMode("signin");
-          return;
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-      router.push("/");
-      router.refresh();
-    } catch (err) {
-      setError(translateAuthError((err as Error).message));
-    } finally {
-      setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword(DEMO);
+    if (error) {
+      setError(translateAuthError(error.message));
+      setLoading(null);
+      return;
     }
+    router.push("/");
+    router.refresh();
   }
 
   async function google() {
     setError(null);
+    setLoading("google");
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) setError(translateAuthError(error.message));
+    if (error) {
+      setError(translateAuthError(error.message));
+      setLoading(null);
+    }
     // on success the browser is redirected to Google by the SDK
   }
 
-  const inputCls =
-    "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring/40 focus:ring-2";
-
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-xl border border-border bg-card p-5">
+    <div className="space-y-3 rounded-xl border border-border bg-card p-5">
       <Button
         type="button"
         variant="outline"
         size="lg"
         className="w-full"
-        disabled={loading}
+        disabled={loading !== null}
         onClick={google}
       >
-        <GoogleIcon /> Continuar com Google
+        {loading === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continuar com Google
       </Button>
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="h-px flex-1 bg-border" /> ou <span className="h-px flex-1 bg-border" />
-      </div>
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="e-mail"
-        className={inputCls}
-      />
-      <input
-        type="password"
-        required
-        minLength={6}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="senha (mín. 6)"
-        className={inputCls}
-      />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {info && <p className="text-sm text-primary">{info}</p>}
-      <Button type="submit" size="lg" className="w-full" disabled={loading}>
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        {mode === "signin" ? "Entrar" : "Criar conta"}
-      </Button>
-      <button
+      <Button
         type="button"
-        onClick={() => {
-          setMode((m) => (m === "signin" ? "signup" : "signin"));
-          setError(null);
-          setInfo(null);
-        }}
-        className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+        size="lg"
+        className="w-full"
+        disabled={loading !== null}
+        onClick={demo}
       >
-        {mode === "signin" ? "Não tem conta? Criar uma" : "Já tem conta? Entrar"}
-      </button>
-    </form>
+        {loading === "demo" && <Loader2 className="h-4 w-4 animate-spin" />} Logar para a demo
+      </Button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
   );
 }
 
