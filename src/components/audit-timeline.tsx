@@ -8,6 +8,7 @@ const ACTION_LABELS: Record<string, string> = {
   note_updated: "Nota atualizada",
   note_deleted: "Nota excluída",
   followup_scheduled: "Follow-up agendado",
+  followup_deleted: "Follow-up excluído",
   agreement_created: "Acordo criado",
   agreement_updated: "Acordo atualizado",
   agreement_deleted: "Acordo excluído",

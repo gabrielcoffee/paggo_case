@@ -41,6 +41,9 @@ export const planStepSchema = z.discriminatedUnion("kind", [
     kind: z.literal("automation"),
     spec: automationSpecSchema,
   }),
+  z.object({ kind: z.literal("delete_note"), noteId: z.string().min(1) }),
+  z.object({ kind: z.literal("delete_followup"), followUpId: z.string().min(1) }),
+  z.object({ kind: z.literal("delete_agreement"), agreementId: z.string().min(1) }),
 ]);
 
 export type PlanStep = z.infer<typeof planStepSchema>;
@@ -62,5 +65,11 @@ export function describeStep(s: PlanStep): string {
       return `${s.invoiceId}: acordo ${s.installments}x${s.discountPct ? ` -${s.discountPct}%` : ""}`;
     case "automation":
       return `Automação "${s.spec.name}": ${describeAutomation(s.spec)}`;
+    case "delete_note":
+      return `Excluir nota ${s.noteId}`;
+    case "delete_followup":
+      return `Excluir follow-up ${s.followUpId}`;
+    case "delete_agreement":
+      return `Excluir acordo ${s.agreementId}`;
   }
 }

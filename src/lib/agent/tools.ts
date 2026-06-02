@@ -243,7 +243,7 @@ export const TOOL_DEFS = [
         steps: {
           type: "array",
           description:
-            "Passos. kind: 'status'{invoiceId,to,note?} | 'note'{invoiceId,body} | 'followup'{invoiceId,dueAt,channel,body} | 'writeoff'{invoiceId,note?} | 'agreement'{invoiceId,installments,discountPct?,feePct?,firstDueDate,intervalDays?}",
+            "Passos. kind: 'status'{invoiceId,to,note?} | 'note'{invoiceId,body} | 'followup'{invoiceId,dueAt,channel,body} | 'writeoff'{invoiceId,note?} | 'agreement'{invoiceId,installments,discountPct?,feePct?,firstDueDate,intervalDays?} | 'delete_note'{noteId} | 'delete_followup'{followUpId} | 'delete_agreement'{agreementId}. Para excluir, use listNotes/listFollowUps/listAgreements para obter os ids.",
           items: { type: "object" },
         },
       },

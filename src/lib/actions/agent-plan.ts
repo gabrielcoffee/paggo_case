@@ -53,6 +53,52 @@ async function execStep(tx: Prisma.TransactionClient, step: PlanStep, planId: st
     return;
   }
 
+  // Deletions: resolve the record (for the audit entity), remove it, audit. No-op
+  // if it's already gone, so re-running a confirmed plan stays safe.
+  if (step.kind === "delete_note") {
+    const note = await tx.note.findUnique({ where: { id: step.noteId } });
+    if (!note) return;
+    await tx.note.delete({ where: { id: step.noteId } });
+    await recordAudit(tx, {
+      entityType: note.entityType,
+      entityId: note.entityId,
+      action: "note_deleted",
+      origin: AGENT.origin,
+      actor: AGENT.actor,
+      payload: { noteId: step.noteId, planId },
+    });
+    return;
+  }
+  if (step.kind === "delete_followup") {
+    const f = await tx.followUp.findUnique({ where: { id: step.followUpId } });
+    if (!f) return;
+    await tx.followUp.delete({ where: { id: step.followUpId } });
+    await recordAudit(tx, {
+      entityType: f.entityType,
+      entityId: f.entityId,
+      action: "followup_deleted",
+      origin: AGENT.origin,
+      actor: AGENT.actor,
+      payload: { followUpId: step.followUpId, planId },
+    });
+    return;
+  }
+  if (step.kind === "delete_agreement") {
+    const ag = await tx.paymentAgreement.findUnique({ where: { id: step.agreementId } });
+    if (!ag) return;
+    await tx.agreementInstallment.deleteMany({ where: { agreementId: step.agreementId } });
+    await tx.paymentAgreement.delete({ where: { id: step.agreementId } });
+    await recordAudit(tx, {
+      entityType: "invoice",
+      entityId: ag.originalInvoiceId,
+      action: "agreement_deleted",
+      origin: AGENT.origin,
+      actor: AGENT.actor,
+      payload: { agreementId: step.agreementId, planId },
+    });
+    return;
+  }
+
   const audit = (action: string, payload: Prisma.InputJsonValue) =>
     recordAudit(tx, {
       entityType: "invoice",
