@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { appToday } from "@/lib/risk";
 import { agingBucket, AGING_BUCKETS, type AgingBucket } from "@/lib/aging";
@@ -96,7 +97,10 @@ export async function fetchDashboard(): Promise<DashboardData> {
     tiers: { critical, high, medium, low },
     statusCounts: statusGroups.map((g) => ({ status: g.status, count: g._count._all })),
     aging: AGING_BUCKETS.map((b) => ({ bucket: b, ...agingMap.get(b)! })),
+    // Cap the timeline at the reference month (APP_TODAY) — don't show months
+    // beyond the frozen "today" even if paidDate rows exist later.
     trend: [...months.entries()]
+      .filter(([month]) => month <= format(today, "yyyy-MM"))
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, v]) => ({ month, billed: v.billed, received: v.received })),
   };

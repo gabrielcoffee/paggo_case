@@ -44,30 +44,33 @@ export default async function Home() {
           <KpiCard
             label="DSO realizado"
             value={`${d.dso.realized} dias`}
-            hint="média paga − emissão"
+            hint="Tempo médio para receber (faturas já pagas)"
           />
           <KpiCard
             label="DSO atual"
             value={`${d.dso.current} dias`}
-            hint="(AR / faturado) × 90"
+            hint="Carteira em dias: AR ÷ faturado × 90"
           />
         </div>
 
         {/* Risk tiers */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {TIERS.map((t) => (
-            <div
-              key={t.key}
-              className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
-            >
-              <span className="text-sm text-muted-foreground">{t.label}</span>
-              <span
-                className={`rounded-md px-2 py-0.5 font-mono text-sm font-semibold tabular-nums ${t.cls}`}
+        <div>
+          <h2 className="mb-2 text-sm font-semibold">Faturas em aberto por nível de risco</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {TIERS.map((t) => (
+              <div
+                key={t.key}
+                className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
               >
-                {d.tiers[t.key].toLocaleString("pt-BR")}
-              </span>
-            </div>
-          ))}
+                <span className="text-sm text-muted-foreground">{t.label}</span>
+                <span
+                  className={`rounded-md px-2 py-0.5 font-mono text-sm font-semibold tabular-nums ${t.cls}`}
+                >
+                  {d.tiers[t.key].toLocaleString("pt-BR")}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Charts */}
