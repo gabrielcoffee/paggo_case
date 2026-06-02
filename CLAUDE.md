@@ -127,8 +127,8 @@ Scheduled rules in the "Automações" tab of the Agente screen.
 `AutomationSpec` (`src/lib/automation/automation-spec.ts`) is the single source
 of truth — `{ target, condition, effect, schedule }` — driving the manual form,
 the agent tool, validation, and the engine. Effects: `note`, `followup`,
-`status` (per matched entity) and `report_email` (renders + emails the PDF via
-Resend, runs once). `engine.ts` resolves matches (reusing `buildWhere` /
+`status` (per matched entity) and `report_email` (renders the PDF and "sends" it
+— simulated, no external provider — runs once). `engine.ts` resolves matches (reusing `buildWhere` /
 customer aggregates), applies effects with `origin: "automation"` + the rule id
 (also used to dedup re-runs), records an `AutomationRun`, and advances
 `nextRunAt` (`computeNextRun`, wall-clock; conditions evaluate against
@@ -184,7 +184,6 @@ npm run test:watch   # vitest watch mode
 | `DATABASE_URL` | Supabase Postgres connection string (Transaction pooler URI) |
 | `ANTHROPIC_API_KEY` | Claude API key for the agent |
 | `APP_TODAY` | Reference date for aging math (e.g. `2026-04-01`) |
-| `RESEND_API_KEY` | Resend key for the automation "report_email" effect (sends from `onboarding@resend.dev`; without a verified domain Resend only delivers to the account owner's email) |
 | `CRON_SECRET` | Optional bearer token guarding `GET /api/cron/automations` (Vercel Cron) |
 
 ## Coding Standards

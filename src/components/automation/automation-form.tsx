@@ -438,7 +438,7 @@ export function AutomationForm({
                     ))}
                   </select>
                 </label>
-                <p className="col-span-2 text-[11px] text-muted-foreground">Enviado para o seu email cadastrado.</p>
+                <p className="col-span-2 text-[11px] text-muted-foreground">Enviado para o seu email cadastrado (envio simulado neste protótipo).</p>
               </div>
             )}
           </Section>

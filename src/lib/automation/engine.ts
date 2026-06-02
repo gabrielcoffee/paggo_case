@@ -223,7 +223,7 @@ export async function runAutomation(
       if (!res.ok) throw new Error(res.error);
       matched = 1;
       acted = 1;
-      summary = `Relatório enviado para ${effect.to}`;
+      summary = `Relatório gerado e enviado (simulado) para ${effect.to}`;
     } else {
       const since = rule.lastRunAt ?? new Date(0);
       if (rule.target === "invoice") {

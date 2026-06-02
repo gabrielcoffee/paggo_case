@@ -21,12 +21,11 @@ executa ações sob confirmação humana.
 ## Stack
 
 Next.js 16 (App Router, Server Actions) · TypeScript · Tailwind v4 + shadcn/ui (base-ui) · PostgreSQL
-(Supabase) · Prisma 6 · Anthropic Claude (tool use) · @react-pdf/renderer · Resend · Recharts · Vitest.
+(Supabase) · Prisma 6 · Anthropic Claude (tool use) · @react-pdf/renderer · Recharts · Vitest.
 
 ## Setup
 
-Pré-requisitos: Node 20+, um banco Postgres (Supabase), uma chave Anthropic e (para o efeito de
-email das automações) uma chave Resend.
+Pré-requisitos: Node 20+, um banco Postgres (Supabase) e uma chave Anthropic.
 
 ```bash
 npm install
@@ -41,7 +40,6 @@ ANTHROPIC_API_KEY=                     # chave da API Claude (o agente)
 APP_TODAY=2026-04-01                   # data de referência fixa para o aging (ver decisões)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-RESEND_API_KEY=                        # envio do relatório por email (efeito de automação)
 CRON_SECRET=                           # opcional — protege GET /api/cron/automations (Vercel Cron)
 ```
 
@@ -125,7 +123,7 @@ e ao motor de execução; as combinações são dados, não código por combina�
 - **Gatilho:** faturas ou clientes (com filtros: segmento, risco, em aberto, dias de atraso…), ou a
   carteira inteira (para relatório). O formulário mostra **"N correspondem agora"** ao vivo.
 - **Efeito:** escrever nota, agendar follow-up, mudar status (por entidade) ou **enviar relatório por
-  email** (roda uma vez, via Resend). Notas/follow-ups aceitam templates (`{cliente}`, `{valor_aberto}`,
+  email** (roda uma vez; envio simulado — gera o PDF mas não dispara provedor externo). Notas/follow-ups aceitam templates (`{cliente}`, `{valor_aberto}`,
   `{dias_atraso}`…).
 - **Agenda:** semanal ou mensal, com data de início e horário (padrão 10h).
 - **Execução:** botão **"Executar agora"** (caminho de demo) e rota `GET /api/cron/automations`
@@ -161,8 +159,9 @@ Tradeoffs e alternativas rejeitadas estão em `MEMORY.md`; a arquitetura estáve
 
 - **Sem contato do cliente no CSV.** Follow-up "por telefone" é registrado mas não dispara nada real —
   placeholder de UI; integração real plugaria num sistema de comunicação.
-- **Email (Resend) sem domínio verificado** só entrega para o email da própria conta Resend. Para
-  enviar a qualquer destinatário, verifique um domínio.
+- **Envio de email é simulado.** O efeito "report_email" gera o PDF e registra a execução, mas não
+  dispara provedor externo (sem dependência/chave). Trocar `emailReport` por um provedor real
+  (ex.: Resend) liga o envio de verdade.
 - **Agenda vs. dados congelados.** As automações correm no relógio real, mas avaliam as condições contra
   `APP_TODAY` (dataset fixo). O caminho demonstrável é o botão "Executar agora".
 - **Migrações via Supabase MCP.** O histórico do Prisma está dessincronizado do banco remoto; mudanças
