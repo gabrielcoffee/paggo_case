@@ -125,8 +125,8 @@ export function riskTier(score: number): "low" | "medium" | "high" | "critical" 
   return "low";
 }
 
+// Fixed reference date for aging math. Falls back to the dataset's reference
+// (2026-04-01) if APP_TODAY isn't set, so a missing env var never 500s prod.
 export function appToday(): Date {
-  const env = process.env.APP_TODAY;
-  if (!env) throw new Error("APP_TODAY env var must be set (e.g. 2026-04-01)");
-  return parseISO(env);
+  return parseISO(process.env.APP_TODAY || "2026-04-01");
 }
