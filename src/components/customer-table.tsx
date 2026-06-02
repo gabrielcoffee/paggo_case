@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Users, X } from "lucide-react";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { CustomerCreateModal } from "@/components/forms/customer-create-modal";
 import { CustomerSheet } from "@/components/customer-sheet";
@@ -86,9 +86,12 @@ export function CustomerTable({
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
-        <div>
-          <h1 className="text-base font-semibold">Clientes</h1>
-          <p className="text-xs text-muted-foreground">Carteira B2B · {totalAll} clientes</p>
+        <div className="flex items-center gap-5">
+          <Users className="h-4 w-4 text-primary" />
+          <div>
+            <h1 className="text-base font-semibold">Clientes</h1>
+            <p className="text-xs text-muted-foreground">Carteira B2B · {totalAll} clientes</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <CustomerCreateModal />
@@ -166,7 +169,10 @@ export function CustomerTable({
                 key={c.id}
                 onClick={() => setOpenCustomer(c)}
                 onMouseEnter={() => prefetchCustomer(c.id)}
-                className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!"
+                className={cn(
+                  "cursor-pointer border-b border-border/60 transition-colors [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!",
+                  openCustomer?.id === c.id ? "bg-accent/70" : "hover:bg-accent/40",
+                )}
               >
                 <td className="max-w-[260px]">
                   <span className="block truncate font-medium" title={c.name}>

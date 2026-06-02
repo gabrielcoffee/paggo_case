@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Play, Trash2, Zap, Loader2, ChevronDown } from "lucide-react";
+import { Plus, Play, Trash2, Zap, Loader2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -119,11 +119,14 @@ export function AutomationsPanel({ today }: { today: string }) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
-        <div>
-          <h2 className="text-base font-semibold">Automações</h2>
-          <p className="text-xs text-muted-foreground">
-            Regras que conferem a carteira e agem sozinhas no horário marcado
-          </p>
+        <div className="flex items-center gap-5">
+          <Zap className="h-4 w-4 text-primary" />
+          <div>
+            <h2 className="text-base font-semibold">Automações</h2>
+            <p className="text-xs text-muted-foreground">
+              Regras que conferem a carteira e agem sozinhas no horário marcado
+            </p>
+          </div>
         </div>
         <Button size="sm" onClick={() => setFormOpen(true)}>
           <Plus className="h-4 w-4" /> Nova automação
@@ -208,10 +211,13 @@ export function AutomationsPanel({ today }: { today: string }) {
                     <button
                       type="button"
                       onClick={() => setExpanded((e) => (e === r.id ? null : r.id))}
-                      className="rounded p-1 text-muted-foreground hover:text-foreground"
-                      title="Histórico"
+                      className={cn(
+                        "rounded p-1 transition-colors hover:text-foreground",
+                        expanded === r.id ? "text-primary" : "text-muted-foreground",
+                      )}
+                      title="Histórico de execução"
                     >
-                      <ChevronDown className={cn("h-4 w-4 transition-transform", expanded === r.id && "rotate-180")} />
+                      <History className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

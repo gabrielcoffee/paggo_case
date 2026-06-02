@@ -1,3 +1,4 @@
+import { LayoutDashboard } from "lucide-react";
 import { fetchDashboard } from "@/lib/queries/dashboard";
 import { KpiCard } from "@/components/kpi-card";
 import { AgingBar } from "@/components/charts/aging-bar";
@@ -19,11 +20,14 @@ export default async function Home() {
   return (
     <div className="h-screen overflow-auto">
       <header className="flex h-14 items-center border-b border-border px-6">
-        <div>
-          <h1 className="text-base font-semibold">Painel</h1>
-          <p className="text-xs text-muted-foreground">
-            Saúde da carteira · referência 01/04/2026
-          </p>
+        <div className="flex items-center gap-6">
+          <LayoutDashboard className="h-4 w-4 text-primary" />
+          <div>
+            <h1 className="text-base font-semibold">Painel</h1>
+            <p className="text-xs text-muted-foreground">
+              Saúde da carteira · referência 01/04/2026
+            </p>
+          </div>
         </div>
       </header>
 

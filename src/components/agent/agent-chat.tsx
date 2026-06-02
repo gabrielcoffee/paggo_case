@@ -30,10 +30,14 @@ type Msg = {
   trace?: TraceEntry[];
 };
 
-const SUGGESTIONS = [
-  "Quais as 5 faturas de maior risco?",
-  "Mostre a distribuição por risco da carteira.",
-  "Faturas acima de R$5 mil de clientes com 3+ atrasos: prepare negociação + nota + follow-up.",
+const SUGGESTIONS: { cat: string; text: string }[] = [
+  { cat: "Informação", text: "Quais as 5 faturas de maior risco?" },
+  { cat: "Análise", text: "Mostre a distribuição por risco da carteira." },
+  { cat: "Ação", text: "Agende um follow-up por telefone para amanhã na fatura de maior risco." },
+  {
+    cat: "Automação",
+    text: "Crie uma automação semanal: faturas Enterprise vencidas há 30+ dias → agendar follow-up por telefone.",
+  },
 ];
 
 export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
@@ -170,7 +174,7 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5">
+      <header className="flex h-14 shrink-0 items-center gap-5 border-b border-border px-5">
         <Bot className="h-4 w-4 text-primary" />
         <div>
           <h1 className="text-base font-semibold">Agente</h1>
@@ -199,19 +203,20 @@ export function AgentChat({ onSelect }: { onSelect?: EntitySelect }) {
           )}
 
           {!initializing && messages.length === 0 && (
-            <div className="space-y-3 pt-10 text-center">
+            <div className="mx-auto max-w-xl space-y-2 pt-10">
               <p className="text-sm text-muted-foreground">Comece com:</p>
-              <div className="flex flex-col items-center gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="rounded-lg border border-border bg-card px-3 py-2 text-left text-sm hover:border-primary/40 hover:text-primary"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.text}
+                  onClick={() => send(s.text)}
+                  className="group flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-left text-sm hover:border-primary/40"
+                >
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                    {s.cat}
+                  </span>
+                  <span className="min-w-0 flex-1 group-hover:text-primary">{s.text}</span>
+                </button>
+              ))}
             </div>
           )}
 

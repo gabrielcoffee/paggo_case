@@ -14,6 +14,7 @@ import {
   CreditCard,
   Hourglass,
   Loader2,
+  ReceiptText,
   Repeat,
   Search,
   SlidersHorizontal,
@@ -287,9 +288,12 @@ export function InvoiceTable({
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
-        <div>
-          <h1 className="text-base font-semibold">Faturas</h1>
-          <p className="text-xs text-muted-foreground">Triagem por risco · carteira B2B</p>
+        <div className="flex items-center gap-5">
+          <ReceiptText className="h-4 w-4 text-primary" />
+          <div>
+            <h1 className="text-base font-semibold">Faturas</h1>
+            <p className="text-xs text-muted-foreground">Triagem por risco · carteira B2B</p>
+          </div>
         </div>
         <div className="flex items-center gap-3 text-right text-xs text-muted-foreground">
           <ReportDialog />
@@ -487,7 +491,10 @@ export function InvoiceTable({
                   key={inv.id}
                   onClick={() => setOpenRow(inv)}
                   onMouseEnter={() => prefetchDetail(inv.id)}
-                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40 [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!"
+                  className={cn(
+                    "cursor-pointer border-b border-border/60 transition-colors [&>td]:px-3 [&>td]:py-2.5 [&>td:first-child]:pl-5! [&>td:last-child]:pr-5!",
+                    openRow?.id === inv.id ? "bg-accent/70" : "hover:bg-accent/40",
+                  )}
                 >
                   <td className="max-w-[220px]">
                     <span
