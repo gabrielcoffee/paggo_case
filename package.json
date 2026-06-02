@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "vercel-build": "prisma generate && node scripts/assert-prisma-engine.mjs && next build",
-    "build": "prisma generate && node scripts/assert-prisma-engine.mjs && next build",
+    "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",

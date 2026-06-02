@@ -2,9 +2,13 @@
 // See CLAUDE.md for architecture overview.
 
 generator client {
-  provider      = "prisma-client"
-  output        = "../src/generated/prisma"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  // engineType "client" = WASM query compiler + driver adapter, no native
+  // query-engine binary at runtime, so serverless (Vercel/Netlify) never hits
+  // "engine not found".
+  runtime    = "nodejs"
+  engineType = "client"
 }
 
 datasource db {
